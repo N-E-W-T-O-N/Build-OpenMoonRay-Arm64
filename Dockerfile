@@ -78,6 +78,10 @@ RUN dnf install -y epel-release && \
         autoconf \
         automake \
         libtool \
+        wayland-devel \
+        libxkbcommon-devel \
+        wayland-protocols-devel \
+        extra-cmake-modules \
 # Install Qt if requested in separate layer        
         qt5-qtbase-devel qt5-qtscript-devel \
         && \
