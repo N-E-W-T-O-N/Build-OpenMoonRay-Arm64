@@ -1,11 +1,11 @@
-name: Build & Push MoonRay Arm Image
+name: Build & Push MoonRay ACL Image
 
 on:
   workflow_dispatch:
 
 env:
   IMAGE_NAME: moonray
-  TAG: arm
+  TAG: acl
 
 jobs:
   build:
