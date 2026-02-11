@@ -43,6 +43,7 @@ RUN dnf install -y epel-release && \
         libglvnd-devel \
         libheif-devel \
         libjpeg-devel \
+        libjpeg-turbo-devel \
         libmng \
         libmicrohttpd libmicrohttpd-devel \
         libsquish-devel \
