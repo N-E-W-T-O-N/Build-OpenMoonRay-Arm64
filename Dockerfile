@@ -42,6 +42,7 @@ RUN dnf install -y epel-release && \
         libatomic \
         libglvnd-devel \
         libheif-devel \
+        libjpeg-devel \
         turbojpeg-devel \
         libjpeg-turbo-devel \
         libmng \

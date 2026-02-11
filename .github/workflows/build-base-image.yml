@@ -5,7 +5,6 @@ on:
 
 env:
   IMAGE_NAME: moonray
-  TAG: base
 
 jobs:
   build:
@@ -44,7 +43,7 @@ jobs:
       # ----------------------------
       # Build & Push (multi-arch)
       # ----------------------------
-      - name: Build and push image
+      - name: Build and push BASE image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -52,6 +51,32 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:base
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # ----------------------------
+      # Build & Push ACL (multi-arch)
+      # ----------------------------
+      - name: Build and push ACL image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: acl.Dockerfile
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:acl
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push CUDA image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: cuda.Dockerfile
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:cuda
           cache-from: type=gha
           cache-to: type=gha,mode=max
