@@ -30,7 +30,8 @@ jobs:
       # ----------------------------
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
+        with:
+          install: true  
       # ----------------------------
       # Login to Docker Hub
       # ----------------------------
@@ -52,8 +53,13 @@ jobs:
           platforms: linux/arm64
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:base
+          no-cache: true
+          provenance: false
           # cache-from: type=gha
           # cache-to: type=gha,mode=max
+      - name: Prune builder cache
+        run: docker builder prune -af
+    
       # ----------------------------
       # Build & Push ACL (multi-arch)
       # ----------------------------
@@ -66,9 +72,35 @@ jobs:
           platforms: linux/arm64
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:acl
+          no-cache: true
+          provenance: false
           # cache-from: type=gha
           # cache-to: type=gha,mode=max
+      - name: Prune builder cache
+        run: docker builder prune -af
 
+      # ----------------------------
+      # Build & Push Ubuntu (multi-arch)
+      # ----------------------------
+      - name: Build and push Ubuntu image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ubuntu.Dockerfile
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:ubuntu
+          no-cache: true
+          provenance: false
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
+      - name: Prune builder cache
+        run: docker builder prune -af
+
+      # ----------------------------
+      # Build & Push Cuda (multi-arch)
+      # ----------------------------
       - name: Build and push CUDA image
         uses: docker/build-push-action@v6
         with:
@@ -78,5 +110,9 @@ jobs:
           platforms: linux/arm64
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:cuda
+          no-cache: true
+          provenance: false
           # cache-from: type=gha
           # cache-to: type=gha,mode=max
+      - name: Prune builder cache
+        run: docker builder prune -af

@@ -20,7 +20,7 @@ RUN dnf install -y epel-release && \
         cppunit cppunit-devel \
         curl-devel \
         fmt-devel \
-        flex \
+        flex unzip  \
         freetype-devel \
         gcc gcc-c++ \
         giflib-devel \
@@ -115,11 +115,47 @@ WORKDIR /opt
 #   && rm /tmp/cmake-install.sh \
 #   && echo "Done Installing CMake"
 
+ARG NINJA_VERSION=1.13.2
+ARG ISPC_VERSION=1.30.0
+ARG SIMDE_VERSION=0.8.2
+
 # Install SSE2NEON for ARM compatibility
 RUN git clone --depth=1 https://github.com/DLTcollab/sse2neon.git /tmp/sse2neon && \
     mkdir -p /usr/local/include/sse2neon && \
     mv /tmp/sse2neon/sse2neon.h /usr/local/include/sse2neon/sse2neon.h && \
     rm -rf /tmp/sse2neon
+
+RUN wget https://github.com/ninja-build/ninja/releases/download/v${NINJA_VERSION}/ninja-linux-aarch64.zip -O /tmp/ninja-linux.zip && \
+    unzip /tmp/ninja-linux.zip -d /tmp && \
+    mv /tmp/ninja /usr/local/bin/ninja && \
+    chmod +x /usr/local/bin/ninja && \
+    rm -rf /tmp/ninja-linux.zip
+
+RUN mkdir -p /opt/MoonRay/installs/bin && \
+    wget -q https://github.com/ispc/ispc/releases/download/v${ISPC_VERSION}/ispc-v${ISPC_VERSION}-linux.aarch64.tar.gz \
+        -O /tmp/ispc.tar.gz && \
+    tar -xzf /tmp/ispc.tar.gz \
+        -C /tmp \
+        --strip-components=2 \
+        ispc-v${ISPC_VERSION}-linux.aarch64/bin/ispc && \
+    mv /tmp/ispc /opt/MoonRay/installs/bin/ispc && \
+    chmod +x /opt/MoonRay/installs/bin/ispc && \
+    rm -f /tmp/ispc.tar.gz
+
+
+RUN python3 -m pip install --no-cache-dir  meson 
+
+RUN mkdir -p /tmp/simde \
+    && wget -q https://github.com/simd-everywhere/simde/archive/refs/tags/v${SIMDE_VERSION}.tar.gz \
+        -O /tmp/simde.tar.gz \
+    && tar -xzf /tmp/simde.tar.gz -C /tmp \
+    && meson setup /tmp/simde-build /tmp/simde-${SIMDE_VERSION} \
+        --prefix=/opt/MoonRay/installs \
+        --buildtype=release \
+        -Dtests=false \
+    && meson compile -C /tmp/simde-build \
+    && meson install -C /tmp/simde-build \
+    && rm -rf /tmp/simde*
 
 VOLUME /build
 WORKDIR /source
