@@ -1,4 +1,4 @@
-name: Build & Push MoonRay ACL Image
+name: Build & Push MoonRay Ubuntu Image
 
 on:
   workflow_dispatch:
@@ -7,10 +7,9 @@ on:
     types:
       - completed
 
-
 env:
   IMAGE_NAME: moonray
-  TAG: acl
+  TAG: ubuntu 
 
 jobs:
   build:
@@ -49,14 +48,18 @@ jobs:
       # ----------------------------
       # Build & Push (multi-arch)
       # ----------------------------
-      - name: Build and push image
+      - name: Build and push Ubuntu image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: acl.Dockerfile
+          file: ubuntu.Dockerfile
           push: true
           platforms: linux/arm64
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:ubuntu
+          no-cache: true
+          provenance: false
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
+      - name: Prune builder cache
+        run: docker builder prune -af
