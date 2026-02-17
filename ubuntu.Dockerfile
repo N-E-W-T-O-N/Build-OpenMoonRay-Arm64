@@ -5,11 +5,11 @@ RUN apt-get update &&  \
 # Build essentials
     build-essential \
     cmake meson tar unzip zip \
-    bison \
+    bison libjsoncpp-dev \
     pkg-config \
     libblosc-dev \
     libboost-all-dev \
-    libcppunit-dev \
+    libcppunit-dev ccache \
     libcurl4-openssl-dev \
     libfmt-dev \
     flex \
@@ -42,7 +42,7 @@ RUN apt-get update &&  \
     uuid-dev \
     libwebp-dev \
     libraw-dev \
-    libegl1-mesa-dev \
+    libegl1-mesa-dev libopenexr-dev \
     libgbm-dev \
     libgl1-mesa-dev \
     libglu1-mesa-dev \
@@ -130,20 +130,20 @@ RUN mkdir -p /tmp/simde \
 # ============================================================
 # 1️⃣ JsonCpp (1.9.5)
 # ============================================================
-RUN git clone https://github.com/open-source-parsers/jsoncpp.git /tmp/jsoncpp && \
-    cd /tmp/jsoncpp && \
-    git checkout 5defb4ed1a4293b8e2bf641e16b156fb9de498cc && \
-    mkdir build && cd build && \
-    cmake .. \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=${INSTALL_ROOT} \
-    -DBUILD_SHARED_LIBS=ON \
-    -DPYTHON_EXECUTABLE=/usr/bin/python3 \
-    -DJSONCPP_LIB_BUILD_SHARED=ON \
-    -DJSONCPP_WITH_PKGCONFIG_SUPPORT=OFF && \
-    cmake --build .  && \
-    cmake --install . && \
-    rm -rf /tmp/jsoncpp
+# RUN git clone https://github.com/open-source-parsers/jsoncpp.git /tmp/jsoncpp && \
+#     cd /tmp/jsoncpp && \
+#     git checkout 5defb4ed1a4293b8e2bf641e16b156fb9de498cc && \
+#     mkdir build && cd build && \
+#     cmake .. \
+#     -DCMAKE_BUILD_TYPE=Release \
+#     -DCMAKE_INSTALL_PREFIX=${INSTALL_ROOT} \
+#     -DBUILD_SHARED_LIBS=ON \
+#     -DPYTHON_EXECUTABLE=/usr/bin/python3 \
+#     -DJSONCPP_LIB_BUILD_SHARED=ON \
+#     -DJSONCPP_WITH_PKGCONFIG_SUPPORT=OFF && \
+#     cmake --build .  && \
+#     cmake --install . && \
+#     rm -rf /tmp/jsoncpp
 
 
 # ============================================================
@@ -187,17 +187,17 @@ RUN git clone https://github.com/uxlfoundation/oneTBB /tmp/onetbb && \
 # ============================================================
 # 3️⃣ OpenEXR (v3.1.8)
 # ============================================================
-RUN git clone https://github.com/AcademySoftwareFoundation/openexr /tmp/openexr && \
-    cd /tmp/openexr && \
-    git checkout 68d9e1e17620cef00e59b43fa42c97fbcf90e72b && \
-    mkdir build && cd build && \
-    cmake .. \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=${INSTALL_ROOT} \
-    -DBUILD_SHARED_LIBS=OFF && \
-    cmake --build . -j$(nproc) && \
-    cmake --install . && \
-    rm -rf /tmp/openexr
+# RUN git clone https://github.com/AcademySoftwareFoundation/openexr /tmp/openexr && \
+#     cd /tmp/openexr && \
+#     git checkout 68d9e1e17620cef00e59b43fa42c97fbcf90e72b && \
+#     mkdir build && cd build && \
+#     cmake .. \
+#     -DCMAKE_BUILD_TYPE=Release \
+#     -DCMAKE_INSTALL_PREFIX=${INSTALL_ROOT} \
+#     -DBUILD_SHARED_LIBS=OFF && \
+#     cmake --build . -j$(nproc) && \
+#     cmake --install . && \
+#     rm -rf /tmp/openexr
 
 
 # ============================================================
@@ -315,7 +315,7 @@ RUN git clone https://github.com/NVIDIA/optix-dev /tmp/optix && \
     rm -rf /tmp/optix
 
 
-ENV LD_LIBRARY_PATH=${INSTALL_ROOT}/lib:${LD_LIBRARY_PATH}
+#ENV LD_LIBRARY_PATH=${INSTALL_ROOT}/lib:${LD_LIBRARY_PATH}
 
 VOLUME /build
 WORKDIR /source

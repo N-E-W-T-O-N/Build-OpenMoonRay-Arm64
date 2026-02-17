@@ -6,7 +6,7 @@
 FROM rockylinux:9 AS base
 
 ARG INSTALL_QT=1
-#ARG INSTALL_CGROUP=1
+#ARG INSTALL_CGROUP=1 
 ENV INSTALL_ROOT=/opt/MoonRay/installs
 # Enable repos and install core dependencies in one layer
 # Enable EPEL and CRB repos, then install all core dependencies
@@ -17,7 +17,7 @@ RUN dnf install -y epel-release && \
         bison \
         blosc blosc-devel \
         boost boost-chrono boost-date-time boost-devel boost-filesystem boost-program-options boost-python3 boost-regex boost-system boost-thread \
-        cppunit cppunit-devel \
+        cppunit cppunit-devel ccache python3-jinja2 \
         curl-devel \
         fmt-devel \
         flex unzip  \
@@ -346,8 +346,7 @@ RUN git clone https://github.com/NVIDIA/optix-dev /tmp/optix && \
     cp -r include/* ${INSTALL_ROOT}/include/ && \
     rm -rf /tmp/optix
 
-
-ENV LD_LIBRARY_PATH=${INSTALL_ROOT}/lib:${LD_LIBRARY_PATH}
+#ENV LD_LIBRARY_PATH=${INSTALL_ROOT}/lib:${LD_LIBRARY_PATH}
 
 VOLUME /build
 WORKDIR /source
