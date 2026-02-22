@@ -1,0 +1,11 @@
+name: Manually run CI/RaTS against last Moonbase CI run.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  call_workflow:
+    uses: dwanim/.github/.github/workflows/Harmony_CICD.yml@master
+    with:
+      pipe_config: 'continuous-integration-against'
+      rez_config: 'rez-2-CI-RaTS-main'

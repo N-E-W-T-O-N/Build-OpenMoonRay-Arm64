@@ -1,0 +1,10 @@
+name: Harmony Pipeline CD Trigger (/rel/rez/dwa)
+
+on: workflow_dispatch
+
+jobs:
+  call_workflow:
+    uses: dwanim/.github/.github/workflows/Harmony_CICD.yml@master
+    with:
+      pipe_config: 'release'
+      rez_config: 'rez-2'

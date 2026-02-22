@@ -1,0 +1,18 @@
+name: Harmony Pipeline CD Trigger
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+      - release
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  call_workflow:
+    uses: dwanim/.github/.github/workflows/Harmony_CICD.yml@master
+    with:
+      pipe_config: 'release'
+      rez_config: 'rez-2'

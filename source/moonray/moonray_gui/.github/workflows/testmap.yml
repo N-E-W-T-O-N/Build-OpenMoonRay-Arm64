@@ -1,0 +1,17 @@
+name: Create Test Map
+
+on:
+  workflow_dispatch:
+    inputs:
+      testmappath:
+        description: 'Path to release test map under.'
+        required: true
+        type: string
+
+jobs:
+ call_workflow:
+    uses: dwanim/.github/.github/workflows/Harmony_CICD.yml@master
+    with:
+      pipe_config: 'pre-release'
+      rez_config: 'rez-2'
+      pipe_args: 'custom_release_packages_path=${{ github.event.inputs.testmappath }} release_version=niner'

@@ -1,0 +1,7 @@
+*~
+/build
+*.pyc
+.vscode
+
+# gha created files
+.ci_githooks

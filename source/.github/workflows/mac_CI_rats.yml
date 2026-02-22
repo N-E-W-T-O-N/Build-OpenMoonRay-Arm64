@@ -1,0 +1,116 @@
+name: CI/RATS - macOS/M3
+
+on:
+  workflow_dispatch:
+    inputs:
+      force-rebuild-deps:
+        description: 'Force rebuild dependencies'
+        default: false
+        required: false
+        type: boolean
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+      - 'flowpipeline.yaml'
+      - 'LICENSE'
+      - 'tsc/**'
+
+concurrency:
+  group: WaitForUpdatesMacOS
+  cancel-in-progress: true
+
+env:
+  CHATROOM: ${{ secrets.TRIGGER_RATS_CHATROOM }}
+
+jobs:
+  CI_and_RATS:
+    env:
+      workspace: ${{ github.workspace }}
+      retry_flags: --rerun-failed --output-on-failure
+    runs-on: [self-hosted, macOS]
+    steps:
+      - name: Delay start
+        run: |
+          sleep 120
+      - name: Report to Chat Room
+        if: ${{ !cancelled() }}
+        run: |
+          curl -X POST -H 'Content-Type: application/json' --url ${CHATROOM} \
+              -d '{"text": "Starting MacOS CI/RaTS test run on ${{ github.ref_name }} to verify last merge was correct."}'
+      - name: Cleanup previous run
+        if: always()
+        shell: bash
+        run: |
+          cd ${workspace}
+          rm -rf build-deps build source installs/openmoonray
+      - name: Clone openmoonray
+        uses: actions/checkout@v5
+        with:
+          path: source/openmoonray
+          repository: dwanim/openmoonray
+          token: ${{ secrets.BART_TOKEN }}
+          submodules: recursive
+          lfs: true
+      - name: Check for new dependencies
+        env:
+            FORCE_REBUILD: ${{ inputs.force-rebuild-deps }}
+        shell: bash
+        run: |
+          if ! cmp -s ${workspace}/CMakeLists.txt ${workspace}/source/openmoonray/building/macOS/CMakeLists.txt || [[ "${FORCE_REBUILD}" == "true" ]]
+          then
+            rm -rf ${workspace}/CMakeLists.txt ${workspace}/installs
+          fi
+      - name: Build dependencies
+        shell: bash
+        run: |
+          umask 0
+          if [ ! -d ${workspace}/installs ]
+          then
+            mkdir -p ${workspace}/{installs/{bin,lib,include},build-deps}
+            cd ${workspace}/build-deps
+            cmake ${workspace}/source/openmoonray/building/macOS
+            cmake --build .
+            cp -f ${workspace}/source/openmoonray/building/macOS/CMakeLists.txt ${workspace}/CMakeLists.txt
+          fi
+      - name: Build
+        shell: bash
+        working-directory: ./source/openmoonray
+        run: |
+          umask 0
+          mkdir -p ${workspace}/{installs/openmoonray,build}
+          cmake --preset dwa-macos-release
+          cmake --build --preset dwa-macos-release
+          chmod -R go+w ${workspace}/build
+      - name: Run unit tests
+        env:
+          unittest_flags: -C Release -L unit -j $(sysctl -n hw.physicalcpu)
+        shell: bash
+        working-directory: ./build
+        run: |
+          umask 0
+          ctest ${{ env.unittest_flags }} || ctest ${{ env.unittest_flags }} ${{ env.retry_flags }}
+      - name: Run RATS tests
+        env:
+          RATS_CANONICAL_DIR: /Applications/MoonRay/rats_canonicals
+          rats_flags: -C Release -L rats -L 'render|diff' -j $(sysctl -n hw.physicalcpu)
+        shell: bash
+        working-directory: ./build
+        run: |
+          umask 0
+          source ${workspace}/installs/openmoonray/Release/scripts/setup.sh
+          ctest ${{ env.rats_flags }} || ctest ${{ env.rats_flags }} ${{ env.retry_flags }}
+
+  StatusMessage:
+    needs: CI_and_RATS
+    if: ${{ !cancelled() }}
+    env:
+      status: ${{ needs.CI_and_RATS.result == 'success' && 'green' || 'red' }}
+    runs-on: [self-hosted, macOS]
+    steps:
+      - name: Report status to Chat Room
+        run: |
+          curl -X POST -H 'Content-Type: application/json' --url ${CHATROOM} \
+              -d '{"text": "MacOS CI/RaTS test run on ${{ github.ref_name }} complete with ${{ env.status }} status."}'

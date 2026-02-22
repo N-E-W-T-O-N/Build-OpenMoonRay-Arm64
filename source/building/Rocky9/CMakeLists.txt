@@ -1,0 +1,345 @@
+# Copyright 2023-2024 DreamWorks Animation LLC
+# SPDX-License-Identifier: Apache-2.0
+
+# These ExternalProject targets can be used to download, build and
+# install many of the Moonray dependencies.
+# The targets are chained using dependencies so that they run
+# serially.
+
+cmake_minimum_required (VERSION 3.23.1)
+project(openmoonray_third_party)
+
+include(ExternalProject)
+
+set(InstallRoot /opt/MoonRay/installs CACHE FILEPATH "Install root for dependencies")
+set(CHAIN "")
+
+
+ExternalProject_Add(ISPC
+    URL https://github.com/ispc/ispc/releases/download/v1.30.0/ispc-v1.30.0-linux.aarch64.tar.gz
+    BUILD_IN_SOURCE 1
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND
+        ${CMAKE_COMMAND} -E make_directory ${InstallRoot}/bin
+        COMMAND ${CMAKE_COMMAND} -E copy bin/ispc ${InstallRoot}/bin/ispc
+    DEPENDS ${CHAIN}
+)
+
+#set(CHAIN ISPC)
+# Ninja
+#ExternalProject_Add(NinjaTool
+#   URL https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux-aarch64.zip
+#    URL_HASH SHA256=fd2cacc8050a7f12a16a2e48f9e06fca5c14fc4c2bee2babb67b58be17a607fc
+#    BUILD_IN_SOURCE 1
+#    CONFIGURE_COMMAND ""
+#    BUILD_COMMAND ""
+#    DOWNLOAD_EXTRACT_TIMESTAMP FALSE
+#   INSTALL_COMMAND cp bin/ispc ${InstallRoot}/bin
+#    INSTALL_COMMAND cp ninja /usr/local/bin/ninja
+#    DEPENDS ${CHAIN}
+#)
+#set(CHAIN NinjaTool)
+
+# ---------- MESON INSTALL (always install) ----------
+ExternalProject_Add(MesonTool
+    URL https://github.com/mesonbuild/meson/releases/download/1.9.1/meson-1.9.1-py3-none-any.whl
+    URL_HASH SHA256=f824ab770c041a202f532f69e114c971918ed2daff7ea56583d80642564598d0
+    DOWNLOAD_NO_EXTRACT TRUE
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND
+        pip3 install --force-reinstall  ${CMAKE_BINARY_DIR}/MesonTool-prefix/src/meson-1.9.1-py3-none-any.whl
+)
+
+#set(CHAIN MesonTool)
+
+ExternalProject_Add(SIMDe
+    GIT_REPOSITORY https://github.com/simd-everywhere/simde.git
+    GIT_SHALLOW TRUE   
+    GIT_TAG v0.8.2
+    PREFIX ${CMAKE_BINARY_DIR}/SIMDe
+    SOURCE_DIR ${CMAKE_BINARY_DIR}/SIMDe/src
+    BINARY_DIR ${CMAKE_BINARY_DIR}/SIMDe/build
+    INSTALL_DIR ${InstallRoot}
+    CONFIGURE_COMMAND
+        /usr/local/bin/meson setup ${CMAKE_BINARY_DIR}/SIMDe/build ${CMAKE_BINARY_DIR}/SIMDe/src
+        --prefix=${InstallRoot}
+        --buildtype=release
+        -Dtests=false
+    BUILD_COMMAND meson compile -C ${CMAKE_BINARY_DIR}/SIMDe/build
+    INSTALL_COMMAND meson install -C ${CMAKE_BINARY_DIR}/SIMDe/build
+    DEPENDS ${CHAIN}
+)
+
+#ExternalProject_Add(SIMDe
+#    URL https://github.com/simd-everywhere/simde/archive/refs/tags/v0.8.2.tar.gz
+#    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+#    INSTALL_DIR ${InstallRoot}
+#    CONFIGURE_COMMAND /usr/local/bin/meson setup <BINARY_DIR> <SOURCE_DIR>
+#                      --prefix=<INSTALL_DIR>
+#                      --buildtype=release
+#                      -Dtests=false
+#    BUILD_COMMAND meson compile -C <BINARY_DIR>
+#    INSTALL_COMMAND meson install -C <BINARY_DIR>
+#    DEPENDS ${CHAIN}
+#)
+#set(CHAIN SIMDe)
+
+ExternalProject_Add(JsonCpp
+   GIT_REPOSITORY https://github.com/open-source-parsers/jsoncpp.git
+    GIT_TAG 5defb4ed1a4293b8e2bf641e16b156fb9de498cc # 1.9.5
+    INSTALL_DIR ${InstallRoot}
+    CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+        -DBUILD_SHARED_LIBS=1
+        -DPYTHON_EXECUTABLE=/usr/bin/python3
+        -DJSONCPP_LIB_BUILD_SHARED:BOOL=ON
+        -DJSONCPP_WITH_PKGCONFIG_SUPPORT=OFF
+)
+set(CHAIN JsonCpp)
+
+ExternalProject_Add(OpenSubdiv
+    GIT_REPOSITORY https://github.com/PixarAnimationStudios/OpenSubdiv
+    GIT_TAG v3_7_0
+    INSTALL_DIR ${InstallRoot}
+    CMAKE_ARGS
+      -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+      -DCMAKE_BUILD_TYPE=Release
+      -DPYTHON_EXECUTABLE=/usr/bin/python3
+      -DNO_PTEX=1 -DNO_OMP=1 -DNO_TBB=1 -DNO_CUDA=1 -DNO_GLFW_X11=1 -DNO_DOC=1
+      -DNO_OPENCL=1 -DNO_CLEW=1 -DNO_REGRESSION=1 -DNO_EXAMPLES=1 -DNO_TUTORIALS=1 -DNO_GLTESTS=1
+      -DNO_MACOS_FRAMEWORK=1 -DNO_METAL=1 -DNO_TESTS=1
+    DEPENDS ${CHAIN}
+)
+set(CHAIN OpenSubdiv)
+
+ExternalProject_Add(OpenEXR
+    GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/openexr
+    GIT_TAG v3.4.5
+    PATCH_COMMAND patch IlmBase/Half/CMakeLists.txt ${CMAKE_CURRENT_SOURCE_DIR}/../Imath_include_paths.patch
+    INSTALL_DIR ${InstallRoot}
+    CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+        -DBUILD_SHARED_LIBS=OFF
+    DEPENDS ${CHAIN}
+)
+set(CHAIN OpenEXR)
+
+ExternalProject_Add(Random123
+    GIT_REPOSITORY https://github.com/DEShawResearch/random123
+    GIT_TAG 726a093cd9a73f3ec3c8d7a70ff10ed8efec8d13 # v1.14.0 (internally we use 1.08.3)
+    BUILD_IN_SOURCE 1
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND make install-include prefix=${InstallRoot}
+    DEPENDS ${CHAIN}
+)
+set(CHAIN Random123)
+
+
+ExternalProject_Add(embree
+    GIT_REPOSITORY https://github.com/embree/embree
+    GIT_TAG v4.4.0
+    INSTALL_DIR ${InstallRoot}
+    CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+        -DEMBREE_ISPC_EXECUTABLE=<INSTALL_DIR>/bin/ispc
+        -DEMBREE_ISPC_SUPPORT=ON
+        -DEMBREE_ARM=ON
+        -DEMBREE_SYCL_SUPPORT=OFF 
+        -DEMBREE_IGNORE_INVALID_RAYS=ON
+        -DEMBREE_RAY_MASK=ON
+        #-DEMBREE_MAX_ISA=AVX512
+        -DEMBREE_TUTORIALS=OFF
+        -DBUILD_SHARED_LIBS=ON
+    DEPENDS ${CHAIN}
+)
+set(CHAIN embree)
+
+ExternalProject_Add(OpenColorIO
+    GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/OpenColorIO
+    GIT_TAG v2.5.1
+    INSTALL_DIR ${InstallRoot}
+   CMAKE_ARGS
+       -DOCIO_BUILD_APPS=OFF
+       -DOCIO_BUILD_TESTS=OFF
+       -DOCIO_BUILD_GPU_TESTS=OFF
+       -DOCIO_USE_SSE=ON
+       -DOCIO_USE_SSE2=ON 
+       -DOCIO_USE_SIMD=ON
+       -DOCIO_BUILD_PYTHON=OFF
+       -DOCIO_WARNING_AS_ERROR=OFF
+       -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+       -DBUILD_SHARED_LIBS=ON
+       -DOCIO_BUILD_STATIC=OFF
+       -DCMAKE_CXX_STANDARD=17
+    DEPENDS ${CHAIN}
+)
+set(CHAIN OpenColorIO)
+
+ExternalProject_Add(OpenImageIO
+    GIT_REPOSITORY https://github.com/OpenImageIO/oiio
+    GIT_TAG v3.1.10.0
+    INSTALL_DIR ${InstallRoot}
+   CMAKE_ARGS
+       -DOpenEXR_ROOT=<INSTALL_DIR>
+       -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+       -DUSE_QT=0
+       -DOpenImageIO_BUILD_MISSING_DEPS=all 
+       -DUSE_PYTHON=1
+       -DBUILD_DOCS=OFF 
+       -DOIIO_BUILD_TESTS=OFF
+       -D__ARM_NEON__=1
+       -DBUILD_TESTING=OFF
+       -DBUILD_DOCS=OFF
+       -DOIIO_NO_SSE=1
+       -DOIIO_NO_AVX=1
+       -DOIIO_NO_AVX2=1
+       -DOIIO_NO_AVX512=1
+       -DOIIO_NO_F16C=1
+       -DSIMD_FLAGS=-march=armv8.2-a
+       -DCMAKE_CXX_FLAGS="-D__ARM_NEON__=1 -U__SSE__ -U__SSE2__ -U__AVX__ -U__AVX2__ -U__SSE4_1__ -U__SSE4_2__ -UFARMHASH_ASSUME_SSSE3 -UFARMHASH_ASSUME_SSE41"
+       -DCMAKE_C_FLAGS="-D__ARM_NEON__=1 -U__SSE__ -U__SSE2__ -U__AVX__ -U__AVX2__ -U__SSE4_1__ -U__SSE4_2__ -UFARMHASH_ASSUME_SSSE3 -UFARMHASH_ASSUME_SSE41"
+   DEPENDS ${CHAIN}
+)
+#set(CHAIN OpenImageIO)
+
+ExternalProject_Add(oneTBB
+    GIT_REPOSITORY  https://github.com/uxlfoundation/oneTBB
+    GIT_TAG v2022.3.0
+    INSTALL_DIR ${InstallRoot}        
+    CMAKE_ARGS
+            -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+            -DCMAKE_BUILD_TYPE=Release
+            -DTBB_TEST=OFF 
+            -DTBB_STRICT=OFF
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
+            -DCMAKE_CXX_FLAGS="-Wno-error=stringop-overflow"
+        DEPENDS ${CHAIN}
+    )
+set(CHAIN oneTBB)
+
+#ExternalProject_Add(OneMath
+#    GIT_REPOSITORY https://github.com/uxlfoundation/oneMath
+#    GIT_TAG V0.9
+#    INSTALL_DIR ${InstallRoot}
+#    CMAKE_ARGS
+#        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+#        -DBUILD_EXAMPLES=OFF
+#        -DBUILD_FUNCTIONAL_TESTS=OFF
+#        -DCMAKE_SYSTEM_PROCESSOR=AARCH64
+#        -DENABLE_ARMPL_BACKEND=ON
+#        -DENABLE_MKLCPU_BACKEND=OFF
+#        -DENABLE_MKLCPU_BACKEND=OFF
+#        -DCMAKE_CXX_COMPILER=<INSTALL_DIR>/bin/ispc openOneAPI
+#        -DARMPL_LIBRARY=/opt/arm/armpl_25.07_gcc
+#    DEPENDS ${CHAIN}
+#)
+#set(CHAIN OneMath)
+
+
+#ExternalProject_Add(OneDNN
+#    GIT_REPOSITORY https://github.com/uxlfoundation/oneDNN
+#    GIT_TAG v3.10.2
+#    INSTALL_DIR ${InstallRoot}
+#    CMAKE_ARGS
+#        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+#        -DCMAKE_SYSTEM_PROCESSOR=AARCH64
+#        -DDNNL_BUILD_DOC=OFF
+#        -DDNNL_BUILD_EXAMPLES=OFF
+#        -DNNL_BUILD_TESTS=OFF
+#        
+#        -DACL_ROOT_DIR=/opt/arm_compute
+#        -DARMPL_LIBRARY=/opt/arm/armpl_25.07_gcc
+#    DEPENDS ${CHAIN}
+#)
+#set(CHAIN OneDNN)
+
+ExternalProject_Add(OpenImageDenoise
+    URL https://github.com/RenderKit/oidn/releases/download/v2.4.1/oidn-2.4.1.src.zip
+    INSTALL_DIR ${InstallRoot}
+    CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+        -DISPC_EXECUTABLE=<INSTALL_DIR>/bin/ispc
+        -DTBB_DIR=<INSTALL_DIR>/lib64/cmake/TBB
+        -DOIDN_APPS=OFF
+        -DOIDN_ARCH=ARM64
+        -DOIDN_DEVICE_HIP=OFF
+        -DOIDN_DEVICE_CUDA=OFF
+        -DOIDN_DEVICE_SYCL=OFF
+        -DOIDN_DEVICE_METAL=OFF
+    DEPENDS ${CHAIN}
+)
+set(CHAIN OpenImageDenoise)
+
+if(NOT NO_USD)
+    ExternalProject_Add(USD
+        GIT_REPOSITORY https://github.com/PixarAnimationStudios/USD
+        GIT_TAG v25.11
+        INSTALL_DIR ${InstallRoot}
+        CMAKE_ARGS
+            -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+            -DCMAKE_PREFIX_PATH=<INSTALL_DIR>
+            -DPXR_ENABLE_PYTHON_SUPPORT=ON
+            -DPXR_USE_PYTHON_3=ON
+            -DPython3_EXECUTABLE=/usr/bin/python3
+            -DBoost_LIBRARY_DIR=/usr/lib64
+            -DBoost_INCLUDE_DIR=/usr/include
+            -DTBB_USE_DEBUG_BUILD=OFF
+            #-DTBB_ROOT_DIR=/usr
+            #-DTBB_LIBRARIES=/usr/lib64
+            #-DTBB_INCLUDE_DIRS=/usr/include
+            -DTBB_DIR=<INSTALL_DIR>/lib64/cmake/TBB
+            #-DTBB_ROOT_DIR:PATH=<INSTALL_DIR>
+            #-DTBB_INSTALL_DIR:PATH=<INSTALL_DIR> 
+            #-DTBB_LIBRARIES=/usr/lib64
+            #-DTBB_INCLUDE_DIRS=/usr/include ..
+            -DPXR_BUILD_TESTS=OFF
+            -DPXR_BUILD_EXAMPLES=OFF
+            -DPXR_BUILD_TUTORIALS=OFF
+            -DPXR_BUILD_USD_TOOLS=OFF
+            -DPXR_BUILD_ANIMX_TESTS=OFF
+            -DPXR_ENABLE_PTEX_SUPPORT=OFF
+            -DPXR_ENABLE_OPENVDB_SUPPORT=OFF
+            -DPXR_BUILD_USDVIEW=OFF
+            -DBoost_NO_BOOST_CMAKE=ON
+            -DBoost_NO_SYSTEM_PATHS=ON
+            -DPXR_BUILD_DOCUMENTATION=OFF
+            -DPXR_BUILD_HTML_DOCUMENTATION=OFF
+            -DPXR_BUILD_PYTHON_DOCUMENTATION=OFF
+            -DTBB_SUPPRESS_DEPRECATED_MESSAGES=1
+        DEPENDS ${CHAIN}
+    )
+    set(CHAIN USD)
+endif()
+
+ExternalProject_Add(GLFW
+    GIT_REPOSITORY https://github.com/glfw/glfw
+    GIT_TAG 3.4
+    BUILD_COMMAND make ${JOBS_ARG}
+    CMAKE_ARGS
+        -DCMAKE_PREFIX_PATH:PATH=${InstallRoot}
+        -DCMAKE_INSTALL_PREFIX:PATH=${InstallRoot}
+        -DGLFW_BUILD_EXAMPLES=OFF
+        -DGLFW_BUILD_TESTS=OFF
+        -DGLFW_BUILD_DOCS=OFF
+        -DGLFW_INSTALL=ON
+        -DBUILD_SHARED_LIBS=ON
+    DEPENDS ${CHAIN}
+)
+set(CHAIN GLFW)
+
+ExternalProject_Add(OptiXHeaders
+    GIT_REPOSITORY https://github.com/NVIDIA/optix-dev
+    GIT_TAG v7.6.0
+    INSTALL_DIR ${InstallRoot}
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory
+        <SOURCE_DIR>/include
+        <INSTALL_DIR>/include
+    DEPENDS ${CHAIN}
+)
+set(CHAIN OptiXHeaders)
+
