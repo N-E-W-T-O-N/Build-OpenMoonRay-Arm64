@@ -1,9 +1,3 @@
-#usda 1.0
-
-over "surfacing_geom"
-{
-        over "geomMtl"
-        {
-                color3f inputs:albedo = (0.0, 0.0, 1.0)
-        }
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:99faed9d65d5a4a63b718c84c118945f1fd1dc1879dd453b97f2545d322e1962
+size 136
