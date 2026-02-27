@@ -1,0 +1,280 @@
+Yes — you can (and should) define **specific versions + custom configure flags for *all* dependencies**, not just Embree.
+The proper way in vcpkg is:
+
+✅ Pin versions in **manifest**
+✅ Override ports via **overlay ports**
+✅ Inject flags per library in **portfile.cmake**
+✅ Lock everything with **baseline**
+
+Below is a concrete example you can expand.
+
+---
+
+# 📁 Project layout (full control)
+
+```
+render-stack/
+  vcpkg.json
+  vcpkg-configuration.json
+  triplets/
+    arm64-native.cmake
+  overlay-ports/
+    embree/
+    openimageio/
+    opencolorio/
+    openvdb/
+    opensubdiv/
+    tbb/
+```
+
+Think of overlay ports as “custom recipes”.
+
+---
+
+# 📦 Manifest with pinned versions
+
+`vcpkg.json`
+
+```json
+{
+  "name": "render-stack",
+  "version": "1.0",
+  "dependencies": [
+    { "name": "embree", "version>=": "4.4.0" },
+    { "name": "openimageio", "version>=": "3.1.10.0" },
+    { "name": "opencolorio", "version>=": "2.5.1" },
+    { "name": "openvdb", "version>=": "11.0.0" },
+    { "name": "opensubdiv", "version>=": "3.7.0" },
+    { "name": "tbb", "version>=": "2022.3.0" },
+    { "name": "boost", "version>=": "1.84.0" },
+    "fmt",
+    "jsoncpp"
+  ]
+}
+```
+
+(You can also use exact `version-string` if you want strict pinning.)
+
+---
+
+# 🔒 Version lock (important)
+
+`vcpkg-configuration.json`
+
+```json
+{
+  "default-registry": {
+    "kind": "builtin",
+    "baseline": "2024-12-01"
+  }
+}
+```
+
+This freezes dependency graph.
+
+---
+
+# ⚙️ Triplet (ARM tuning)
+
+`triplets/arm64-native.cmake`
+
+```cmake
+set(VCPKG_TARGET_ARCHITECTURE arm64)
+set(VCPKG_CMAKE_SYSTEM_NAME Linux)
+
+set(VCPKG_C_FLAGS "-march=native")
+set(VCPKG_CXX_FLAGS "-march=native -U__SSE__ -U__AVX__")
+
+set(VCPKG_BUILD_TYPE release)
+```
+
+---
+
+# 🛠 Overlay examples for multiple libs
+
+## Embree
+
+```
+overlay-ports/embree/portfile.cmake
+```
+
+```cmake
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO embree/embree
+    REF v4.4.0
+)
+
+vcpkg_cmake_configure(
+    SOURCE_PATH ${SOURCE_PATH}
+    OPTIONS
+        -DEMBREE_ARM=ON
+        -DEMBREE_ISPC_SUPPORT=OFF
+        -DEMBREE_TUTORIALS=OFF
+)
+
+vcpkg_cmake_install()
+```
+
+---
+
+## OpenImageIO (disable SSE for ARM)
+
+```
+overlay-ports/openimageio/portfile.cmake
+```
+
+```cmake
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO OpenImageIO/oiio
+    REF v3.1.10.0
+)
+
+vcpkg_cmake_configure(
+    SOURCE_PATH ${SOURCE_PATH}
+    OPTIONS
+        -DOIIO_NO_SSE=ON
+        -DOIIO_NO_AVX=ON
+        -DUSE_QT=OFF
+        -DOIIO_BUILD_TESTS=OFF
+)
+
+vcpkg_cmake_install()
+```
+
+---
+
+## OpenColorIO
+
+```
+overlay-ports/opencolorio/portfile.cmake
+```
+
+```cmake
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO AcademySoftwareFoundation/OpenColorIO
+    REF v2.5.1
+)
+
+vcpkg_cmake_configure(
+    SOURCE_PATH ${SOURCE_PATH}
+    OPTIONS
+        -DOCIO_BUILD_APPS=OFF
+        -DOCIO_BUILD_TESTS=OFF
+        -DOCIO_BUILD_GPU_TESTS=OFF
+)
+
+vcpkg_cmake_install()
+```
+
+---
+
+## OpenSubdiv
+
+```
+overlay-ports/opensubdiv/portfile.cmake
+```
+
+```cmake
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO PixarAnimationStudios/OpenSubdiv
+    REF v3_7_0
+)
+
+vcpkg_cmake_configure(
+    SOURCE_PATH ${SOURCE_PATH}
+    OPTIONS
+        -DNO_CUDA=ON
+        -DNO_OMP=ON
+        -DNO_TBB=ON
+        -DNO_TESTS=ON
+)
+
+vcpkg_cmake_install()
+```
+
+---
+
+## oneTBB
+
+```
+overlay-ports/tbb/portfile.cmake
+```
+
+```cmake
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO uxlfoundation/oneTBB
+    REF v2022.3.0
+)
+
+vcpkg_cmake_configure(
+    SOURCE_PATH ${SOURCE_PATH}
+    OPTIONS
+        -DTBB_TEST=OFF
+)
+
+vcpkg_cmake_install()
+```
+
+---
+
+# ▶️ Install everything
+
+```bash
+vcpkg install \
+  --triplet arm64-native \
+  --overlay-ports=overlay-ports
+```
+
+---
+
+# 🧠 Why this is the “correct” solution
+
+You now control:
+
+✔ exact versions
+✔ compiler flags
+✔ optional features
+✔ patches
+✔ ARM behavior
+✔ dependency graph
+✔ reproducibility
+
+This is how VFX studios and large C++ stacks operate.
+
+---
+
+# ⚠️ Reality note
+
+Some things remain outside vcpkg:
+
+* ISPC binary
+* OptiX headers
+* GPU SDKs
+* kernel-level libs
+
+But 95% can live here.
+
+---
+
+# ⭐ If you want — I can go deeper
+
+I can build you:
+
+✅ Full MoonRay dependency matrix in vcpkg
+✅ Overlay ports for 20+ libs
+✅ Performance flags tuned for ARM servers
+✅ Reproducible lockfile strategy
+✅ “One command bootstrap” script
+✅ Build time optimization (ccache + binary cache)
+✅ Dependency graph diagram
+
+Just say:
+
+> build full render stack vcpkg template
+
+and I’ll generate it.
