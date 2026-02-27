@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # reproducible SDK builder (up to OptiX headers)
 # usage:
-#   ./repro_sdk_builder.sh [--dry-run] [--prefix /opt/MoonRay/installs] [--only jsoncpp,opensubdiv,...] [--skip optix]
+#   ./repro_sdk_builder.sh [--dry-run] [--prefix installs] [--only jsoncpp,opensubdiv,...] [--skip optix]
 set -euo pipefail
 
 ######################
@@ -10,7 +10,7 @@ set -euo pipefail
 NINJA_VERSION="${NINJA_VERSION:-1.13.2}"
 ISPC_VERSION="${ISPC_VERSION:-1.30.0}"
 SIMDE_VERSION="${SIMDE_VERSION:-0.8.2}"
-INSTALL_ROOT="${INSTALL_ROOT:-/opt/MoonRay/installs}"
+INSTALL_ROOT="${INSTALL_ROOT:-$(pwd)/installs}"
 CACHE_DIR="${CACHE_DIR:-$(pwd)/.cache}"
 STATE_DIR="${STATE_DIR:-$(pwd)/.state}"
 BUILD_DIR="$(pwd)/build"
@@ -42,7 +42,7 @@ libboost-all-dev libcppunit-dev ccache libcurl4-openssl-dev libfmt-dev flex libf
 libgif-dev git lsb-release lua5.3 liblua5.3-dev make libssl-dev patch pybind11-dev python3 python3-dev \
 wget zlib1g-dev freeglut3-dev libglfw3-dev libatomic1 libglvnd-dev libheif-dev libjpeg-dev \
 libturbojpeg0-dev libmng-dev libmicrohttpd-dev libsquish-dev libtiff-dev uuid-dev libwebp-dev \
-libraw-dev libegl1-mesa-dev libopenexr-dev libgbm-dev libgl1-mesa-dev libglu1-mesa-dev libosmesa6-dev \
+libraw-dev libegl1-mesa-dev libgbm-dev libgl1-mesa-dev libglu1-mesa-dev libosmesa6-dev \
 libx11-dev libxcursor-dev libxi-dev libxinerama-dev libxmu-dev libxpm-dev libxrandr-dev \
 libopenjp2-7-dev libopenvdb-dev libptexenc-dev ffmpeg liblog4cplus-dev autoconf automake libtool \
 libwayland-dev libxkbcommon-dev wayland-protocols extra-cmake-modules qtbase5-dev qtscript5-dev"
@@ -77,7 +77,7 @@ while [[ $# -gt 0 ]]; do
     --help|-h) cat >&3 <<'USAGE'
 Usage: repro_sdk_builder.sh [options]
   --dry-run            : print commands but don't execute
-  --prefix <path>      : install root (default /opt/MoonRay/installs)
+  --prefix <path>      : install root (default installs)
   --only <csv>         : comma-separated targets to build (e.g. jsoncpp,embree)
   --skip <csv>         : comma-separated targets to skip
   --cache <dir>        : cache directory (default ./.cache)
@@ -165,7 +165,8 @@ info "INSTALL_ROOT: $INSTALL_ROOT"
 info "CACHE_DIR: $CACHE_DIR  STATE_DIR: $STATE_DIR  BUILD_DIR: $BUILD_DIR  VENV: $VENV_DIR"
 info "DRY_RUN: $DRY_RUN"
 
-read -rp $'Continue? (y/N): ' yn
+printf "Continue? (y/N): " >&3
+read -r yn < /dev/tty
 [[ "$yn" =~ ^[Yy]$ ]] || die "Aborted by user"
 
 # Check required commands
@@ -182,10 +183,11 @@ done
 
 if [[ "$MISSING" -eq 1 ]]; then
   info "Attempt apt-get install of needed packages (requires sudo). This will install many packages."
-  read -rp $'Install apt packages? (y/N): ' aptyn
+  printf "Install apt packages? (y/N): " >&3
+  read -r aptyn < /dev/tty
   if [[ "$aptyn" =~ ^[Yy]$ ]]; then
-    run "sudo apt-get update"
-    run "sudo apt-get install -y $PACKAGES"
+    run "apt-get update"
+    run "apt-get install -y $PACKAGES"
   else
     die "Missing tools; install them and rerun"
   fi
@@ -206,8 +208,8 @@ MESON_CMD="$VENV_DIR/bin/meson"
 if [[ ! -x "$MESON_CMD" ]]; then MESON_CMD="meson"; fi
 
 # ensure install root exists
-run "sudo mkdir -p '$INSTALL_ROOT'"
-run "sudo chown -R \"$(id -u):$(id -g)\" '$INSTALL_ROOT' || true"
+run " mkdir -p '$INSTALL_ROOT'"
+run " chown -R \"$(id -u):$(id -g)\" '$INSTALL_ROOT' || true"
 
 # enable ccache if present
 if command -v ccache &>/dev/null; then
