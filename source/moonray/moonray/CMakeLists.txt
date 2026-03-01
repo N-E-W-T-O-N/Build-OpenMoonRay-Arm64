@@ -138,7 +138,10 @@ if(TARGET MKL::MKL)
 else()
     message(STATUS "MKL not found, skipping")
 endif()
-
+# if it is available
+# find_package(Mkl QUIET)
+# if(${Mkl_FOUND})
+#     set(MKL Mkl::Mkl)
 # Set the RPATH for binaries in the install tree
 set(CMAKE_INSTALL_RPATH ${GLOBAL_INSTALL_RPATH})
 if(NOT IsDarwinPlatform)

@@ -12,7 +12,7 @@ function(${PROJECT_NAME}_cxx_compile_options target)
                 -fno-omit-frame-pointer         # TODO: add a note
                 -fno-strict-aliasing            # TODO: add a note
                 -fpermissive                    # Downgrade some diagnostics about nonconformant code from errors to warnings.
-                -march=core-avx2                # Specify the name of the target architecture
+                -march=armv8-a                  # Specify the name of the target architecture
                 -pipe                           # Use pipes rather than intermediate files.
                 -pthread                        # Define additional macros required for using the POSIX threads library.
                 -w                              # Inhibit all warning messages.

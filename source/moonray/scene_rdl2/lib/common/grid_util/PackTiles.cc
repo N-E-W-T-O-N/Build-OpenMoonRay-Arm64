@@ -53,13 +53,15 @@
 #endif // end DEBUG_MODE
 
 
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
 #ifndef __APPLE__
-#ifdef __INTEL_COMPILER 
+#ifdef __INTEL_COMPILER
 // We don't need any include for half float instructions
 #else // else __INTEL_COMPILER
 #include <x86intrin.h>          // _mm_cvtps_ph, _cvtph_ps : for GCC build
 #endif // end !__INTEL_COMPILER
-#endif 
+#endif
+#endif
 
 //#define DEBUG_MSG_SIZEDUMP
 
@@ -608,7 +610,7 @@ private:
 
     inline static unsigned short ftoh(const float f)
     {
-#if defined(__ARM_NEON__)   // TODO: Verify this
+#if defined(__ARM_NEON__) || defined(__aarch64__)  // TODO: Verify this
 	__fp16 output;
 	vst1_f16(&output, vcvt_f16_f32(vld1q_f32(&f)));
 	return output;
@@ -618,16 +620,24 @@ private:
 #endif
     }
 
-    inline static float htof(const unsigned short h)
-    {
-#if defined(__ARM_NEON__)   // TODO: Verify this
-	float output;
-	vst1q_f32(&output, vcvt_f32_f16(vld1_u16(&h)));
-	return output;
+
+#if defined(__ARM_NEON__) || defined(__aarch64__)   // TODO: Verify this
+static inline float htof(uint16_t h)
+{
+    // Load the 16-bit half into a float16x4_t vector
+    float16x4_t vhalf = vld1_f16(reinterpret_cast<const float16_t*>(&h));
+    // Convert to float32x4_t
+    float32x4_t vfull = vcvt_f32_f16(vhalf);
+    // Extract the first lane
+    return vgetq_lane_f32(vfull, 0);
+}
 #else
-        return _cvtsh_ss(h); // Convert half 16bit float to full 32bit float
+static inline float htof(uint16_t h)
+{
+    return _cvtsh_ss(h); // Convert half 16bit float to full 32bit float
+}
 #endif
-    }
+
 
     // Convert full 32bit float vector 2 to half 16bit float vector 2
     inline static math::Vec2<unsigned short> vec2ftoh(const math::Vec2f &v)

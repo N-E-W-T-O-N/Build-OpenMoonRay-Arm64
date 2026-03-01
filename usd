@@ -1,0 +1,3 @@
+FROM alpine
+
+COPY build/deps/USD-prefix/src /build/deps/USD-prefix/src/

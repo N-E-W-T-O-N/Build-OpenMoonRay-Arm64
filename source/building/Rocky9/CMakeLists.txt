@@ -12,6 +12,65 @@ project(openmoonray_third_party)
 include(ExternalProject)
 
 set(InstallRoot /opt/MoonRay/installs CACHE FILEPATH "Install root for dependencies")
+set(CHAIN "")
+
+# Ninja
+ExternalProject_Add(NinjaTool
+    URL https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-linux-aarch64.zip
+    URL_HASH SHA256=740f1b9f9d8ae68438240a6a2f3f7a27fc8b1946d2024a6a6b25857ee877987b
+    BUILD_IN_SOURCE 1
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    DOWNLOAD_EXTRACT_TIMESTAMP FALSE
+    #INSTALL_COMMAND cp bin/ispc ${InstallRoot}/bin
+    INSTALL_COMMAND cp ninja /usr/local/bin/ninja
+    DEPENDS ${CHAIN}
+)
+set(CHAIN NinjaTool)
+
+# ---------- MESON INSTALL (always install) ----------
+ExternalProject_Add(MesonTool
+    URL https://github.com/mesonbuild/meson/releases/download/1.9.1/meson-1.9.1-py3-none-any.whl
+    URL_HASH SHA256=f824ab770c041a202f532f69e114c971918ed2daff7ea56583d80642564598d0
+    DOWNLOAD_NO_EXTRACT TRUE
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND
+        pip3 install --force-reinstall  ${CMAKE_BINARY_DIR}/MesonTool-prefix/src/meson-1.9.1-py3-none-any.whl
+)
+
+set(CHAIN MesonTool)
+
+#ExternalProject_Add(SIMDe
+#    GIT_REPOSITORY https://github.com/simd-everywhere/simde.git
+#    GIT_SHALLOW TRUE   
+#    GIT_TAG v0.8.2
+#    PREFIX ${CMAKE_BINARY_DIR}/SIMDe
+#    SOURCE_DIR ${CMAKE_BINARY_DIR}/SIMDe/src
+#    BINARY_DIR ${CMAKE_BINARY_DIR}/SIMDe/build
+#    INSTALL_DIR ${InstallRoot}
+#    CONFIGURE_COMMAND
+#        /usr/local/bin/meson setup ${CMAKE_BINARY_DIR}/SIMDe/build ${CMAKE_BINARY_DIR}/SIMDe/src
+#        --prefix=${InstallRoot}
+#        --buildtype=release
+#        -Dtests=false
+#    BUILD_COMMAND meson compile -C ${CMAKE_BINARY_DIR}/SIMDe/build
+#    INSTALL_COMMAND meson install -C ${CMAKE_BINARY_DIR}/SIMDe/build
+#    DEPENDS ${CHAIN}
+#)
+ExternalProject_Add(SIMDe
+    URL https://github.com/simd-everywhere/simde/archive/refs/tags/v0.8.2.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    INSTALL_DIR ${InstallRoot}
+    CONFIGURE_COMMAND /usr/local/bin/meson setup <BINARY_DIR> <SOURCE_DIR>
+                      --prefix=<INSTALL_DIR>
+                      --buildtype=release
+                      -Dtests=false
+    BUILD_COMMAND meson compile -C <BINARY_DIR>
+    INSTALL_COMMAND meson install -C <BINARY_DIR>
+    DEPENDS ${CHAIN}
+)
+set(CHAIN SIMDe)
 
 ExternalProject_Add(JsonCpp
     GIT_REPOSITORY https://github.com/open-source-parsers/jsoncpp.git
@@ -43,7 +102,7 @@ set(CHAIN OpenSubdiv)
 
 ExternalProject_Add(OpenEXR
     GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/openexr
-    GIT_TAG 68d9e1e17620cef00e59b43fa42c97fbcf90e72b # v3.1.8
+    PATCH_COMMAND patch IlmBase/Half/CMakeLists.txt ${CMAKE_CURRENT_SOURCE_DIR}/../Imath_include_paths.patch
     INSTALL_DIR ${InstallRoot}
     CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
@@ -64,7 +123,7 @@ ExternalProject_Add(Random123
 set(CHAIN Random123)
 
 ExternalProject_Add(ISPC
-    URL https://github.com/ispc/ispc/releases/download/v1.21.0/ispc-v1.21.0-linux.tar.gz
+    URL https://github.com/ispc/ispc/releases/download/v1.28.2/ispc-v1.28.2-linux.aarch64.tar.gz
     BUILD_IN_SOURCE 1
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ""
@@ -75,15 +134,16 @@ set(CHAIN ISPC)
 
 ExternalProject_Add(embree
     GIT_REPOSITORY https://github.com/embree/embree
-    GIT_TAG 341ef8c45d1ae072ead1ab65cd76e88b03d9302c # v4.2.0
+    GIT_TAG ff9381774dc99fea81a932ad276677aad6a3d4dd # v4.4.0
     INSTALL_DIR ${InstallRoot}
     CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
         -DEMBREE_ISPC_EXECUTABLE=<INSTALL_DIR>/bin/ispc
         -DEMBREE_ISPC_SUPPORT=ON
+        -DEMBREE_ARM=ON
         -DEMBREE_IGNORE_INVALID_RAYS=ON
         -DEMBREE_RAY_MASK=ON
-        -DEMBREE_MAX_ISA=AVX512
+        #-DEMBREE_MAX_ISA=AVX512
         -DEMBREE_TUTORIALS=OFF
         -DBUILD_SHARED_LIBS=ON
     DEPENDS ${CHAIN}
@@ -92,7 +152,8 @@ set(CHAIN embree)
 
 ExternalProject_Add(OpenColorIO
     GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/OpenColorIO
-    GIT_TAG d1ef24cbf8021f642e42f45f50c2cd4cc77141ce # v2.2.1
+    GIT_TAG v2.5.0
+ # 056b7b0cb0d087961e9dba75104820e44faf52a1 # v2.0.2
     INSTALL_DIR ${InstallRoot}
     CMAKE_ARGS
         -DOCIO_BUILD_APPS=OFF
@@ -110,44 +171,97 @@ set(CHAIN OpenColorIO)
 
 ExternalProject_Add(OpenImageIO
     GIT_REPOSITORY https://github.com/OpenImageIO/oiio
-    GIT_TAG 4991ac482e09bd8feff9ad7d984271cfdc315bff # 2.4.8.0
+    GIT_TAG v2.3.21.0
+    #GIT_TAG 331a323468928c8017ad048b26d47c4e57a724a7 # 2.3.20.0
     INSTALL_DIR ${InstallRoot}
     CMAKE_ARGS
         -DOpenEXR_ROOT=<INSTALL_DIR>
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
         -DUSE_QT=0
         -DUSE_PYTHON=1
+        -D__ARM_NEON__=1
+        -DBUILD_DOCS=OFF
+        -DOIIO_NO_SSE=1
+        -DOIIO_NO_AVX=1
+        -DOIIO_NO_AVX2=1
+        -DOIIO_NO_AVX512=1
+        -DOIIO_NO_F16C=1
+        -DSIMD_FLAGS=-march=armv8.2-a
+        -DCMAKE_CXX_FLAGS="-D__ARM_NEON__=1 -U__SSE__ -U__SSE2__ -U__AVX__ -U__AVX2__ -U__SSE4_1__ -U__SSE4_2__ -UFARMHASH_ASSUME_SSSE3 -UFARMHASH_ASSUME_SSE41"
+        -DCMAKE_C_FLAGS="-D__ARM_NEON__=1 -U__SSE__ -U__SSE2__ -U__AVX__ -U__AVX2__ -U__SSE4_1__ -U__SSE4_2__ -UFARMHASH_ASSUME_SSSE3 -UFARMHASH_ASSUME_SSE41"
     DEPENDS ${CHAIN}
 )
 set(CHAIN OpenImageIO)
 
-ExternalProject_Add(TBB
-    URL https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2020.3.3.tar.gz
-    BUILD_IN_SOURCE 1
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND make ${JOBS_ARG} arch=amd64
-    INSTALL_COMMAND bash -c "cp build/*_release/libtbb*.* ${InstallRoot}/lib"
-            COMMAND bash -c "cp -r include/tbb ${InstallRoot}/include"
-    DEPENDS ${CHAIN}
-)
-set(CHAIN TBB)
+#ExternalProject_Add(OneMath
+#    GIT_REPOSITORY https://github.com/uxlfoundation/oneMath
+#    GIT_TAG 5c7e1e7a710556e51f70ecc8dd26dfd04e3abf41 # v0.8
+#    INSTALL_DIR ${InstallRoot}
+#    CMAKE_ARGS
+#        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+#        -DBUILD_EXAMPLES=OFF
+#        -DBUILD_FUNCTIONAL_TESTS=OFF
+#        -DCMAKE_SYSTEM_PROCESSOR=AARCH64
+#        -DENABLE_ARMPL_BACKEND=ON
+#        -DENABLE_MKLCPU_BACKEND=OFF
+#        -DENABLE_MKLCPU_BACKEND=OFF
+#        -DCMAKE_CXX_COMPILER=<INSTALL_DIR>/bin/ispc openOneAPI
+#        -DARMPL_LIBRARY=/opt/arm/armpl_25.07_gcc
+#    DEPENDS ${CHAIN}
+#)
+#set(CHAIN OneMath)
+
+
+#ExternalProject_Add(OneDNN
+#    GIT_REPOSITORY https://github.com/uxlfoundation/oneDNN
+#    GIT_TAG 80a3a8e745d2f0186e674b0af9332fd6e074c94f # v3.9.1
+#    INSTALL_DIR ${InstallRoot}
+#    CMAKE_ARGS
+#        -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+#        -DCMAKE_SYSTEM_PROCESSOR=AARCH64
+#        -DDNNL_BUILD_DOC=OFF
+#        -DDNNL_BUILD_EXAMPLES=OFF
+#        -DNNL_BUILD_TESTS=OFF
+#        -DDNNL_AARCH64_USE_ACL=ON
+#        -DACL_ROOT_DIR=/opt/arm_compute
+#        -DARMPL_LIBRARY=/opt/arm/armpl_25.07_gcc
+#    DEPENDS ${CHAIN}
+#)
+#set(CHAIN OneDNN)
 
 ExternalProject_Add(OpenImageDenoise
-    URL https://github.com/OpenImageDenoise/oidn/releases/download/v2.3.3/oidn-2.3.3.src.tar.gz
+    URL https://github.com/RenderKit/oidn/releases/download/v2.3.3/oidn-2.3.3.src.tar.gz
     INSTALL_DIR ${InstallRoot}
     CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
         -DISPC_EXECUTABLE=<INSTALL_DIR>/bin/ispc
         -DTBB_ROOT=<INSTALL_DIR>
         -DOIDN_APPS=OFF
+        -DOIDN_ARCH=ARM64
+        -DOIDN_DEVICE_HIP=OFF
+        -DOIDN_DEVICE_CUDA=OFF
+        -DOIDN_DEVICE_SYCL=OFF
     DEPENDS ${CHAIN}
 )
 set(CHAIN OpenImageDenoise)
 
+ExternalProject_Add(oneTBB
+    GIT_REPOSITORY  https://github.com/uxlfoundation/oneTBB
+    GIT_TAG v2022.3.0
+    INSTALL_DIR ${InstallRoot}        
+    CMAKE_ARGS
+            -DCMAKE_INSTALL_PREFIX:PATH=/usr/local
+            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
+            -DCMAKE_CXX_FLAGS="-Wno-error=stringop-overflow"
+        DEPENDS ${CHAIN}
+    )
+set(CHAIN oneTBB)
+
 if(NOT NO_USD)
     ExternalProject_Add(USD
         GIT_REPOSITORY https://github.com/PixarAnimationStudios/USD
-        GIT_TAG 10b62439e9242a55101cf8b200f2c7e02420e1b0 # v23.08
+        GIT_TAG 9b0c13b2efa6233c8a4a4af411833628c5435bde # v24.11
         INSTALL_DIR ${InstallRoot}
         CMAKE_ARGS
             -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
@@ -161,16 +275,23 @@ if(NOT NO_USD)
             -DTBB_USE_DEBUG_BUILD=OFF
             -DTBB_ROOT_DIR=/usr
             -DTBB_LIBRARIES=/usr/lib64
-            -DTBB_INCLUDE_DIRS=/usr/include ..
+            -DTBB_INCLUDE_DIRS=/usr/include
+            #-DTBB_ROOT_DIR:PATH=<INSTALL_DIR>
+            #-DTBB_INSTALL_DIR:PATH=<INSTALL_DIR> 
+            #-DTBB_LIBRARIES=/usr/lib64
+            #-DTBB_INCLUDE_DIRS=/usr/include ..
             -DPXR_BUILD_TESTS=OFF
             -DPXR_BUILD_EXAMPLES=OFF
             -DPXR_BUILD_TUTORIALS=OFF
             -DPXR_BUILD_USD_TOOLS=OFF
+            -DPXR_BUILD_ANIMX_TESTS=OFF
             -DPXR_ENABLE_PTEX_SUPPORT=OFF
             -DPXR_ENABLE_OPENVDB_SUPPORT=OFF
             -DPXR_BUILD_USDVIEW=OFF
             -DBoost_NO_BOOST_CMAKE=ON
             -DBoost_NO_SYSTEM_PATHS=ON
+            -DPXR_BUILD_HTML_DOCUMENTATION=OFF
+            -DPXR_BUILD_PYTHON_DOCUMENTATION=OFF
             -DTBB_SUPPRESS_DEPRECATED_MESSAGES=1
         DEPENDS ${CHAIN}
     )

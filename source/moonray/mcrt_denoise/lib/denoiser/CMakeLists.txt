@@ -57,14 +57,23 @@ McrtDenoise_cxx_compile_features(${component})
 McrtDenoise_cxx_compile_options(${component})
 McrtDenoise_link_options(${component})
 
-set(MOONRAY_DENOISER_TARGET_ARCHITECTURE "SSE" CACHE STRING "Target architecture for the denoiser library")
-set_property(CACHE MOONRAY_DENOISER_TARGET_ARCHITECTURE PROPERTY STRINGS SSE AVX AVX2)
-if(${MOONRAY_DENOISER_TARGET_ARCHITECTURE} MATCHES "^AVX2$")
+
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    # ARM64 - use NEON for denoising
+
     target_compile_definitions(${component}
-        PUBLIC __TARGET_AVX2__ __AVX2__)
-elseif(${MOONRAY_DENOISER_TARGET_ARCHITECTURE} MATCHES "^AVX$")
-    target_compile_definitions(${component}
-        PUBLIC __TARGET_AVX__ __AVX__)
+        PUBLIC __TARGET_NEON__ __ARM_NEON__)
+else()
+    # x86-64 - use Intel SIMD for denoising
+    set(MOONRAY_DENOISER_TARGET_ARCHITECTURE "SSE" CACHE STRING "Target architecture for the denoiser library")
+    set_property(CACHE MOONRAY_DENOISER_TARGET_ARCHITECTURE PROPERTY STRINGS SSE AVX AVX2)
+    if(${MOONRAY_DENOISER_TARGET_ARCHITECTURE} MATCHES "^AVX2$")
+        target_compile_definitions(${component}
+            PUBLIC __TARGET_AVX2__ __AVX2__)
+    elseif(${MOONRAY_DENOISER_TARGET_ARCHITECTURE} MATCHES "^AVX$")
+        target_compile_definitions(${component}
+            PUBLIC __TARGET_AVX__ __AVX__)
+    endif()
 endif()
 
 if(MOONRAY_USE_OPTIX)
@@ -75,6 +84,8 @@ elseif(MOONRAY_USE_METAL)
         PRIVATE MOONRAY_USE_METAL)
 endif()
 
+message("System Targeted ${CMAKE_SYSTEM_PROCESSOR}")
+    
 # -------------------------------------
 # Install the target and the export set
 # -------------------------------------

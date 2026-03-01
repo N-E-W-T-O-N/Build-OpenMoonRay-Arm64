@@ -186,3 +186,16 @@ cmake --build .
 exit
 cmake --build .
 exit
+cd /build/main
+cmake /source/ -DCMAKE_BUILD_TYPE=Release  -DMOONRAY_USE_OPTIX=NO -DTBB_ROOT=/opt/MoonRay/installs/ -DCMAKE_SYSTEM_PROCESSOR=AARCH64 -DTBB_INCLUDE_DIR=/opt/MoonRay/installs/include/  -DCMAKE_PREFIX_PATH=/opt/MoonRay/installs
+cmake /source/ -DCMAKE_BUILD_TYPE=Release  -DMOONRAY_USE_OPTIX=NO -DTBB_ROOT=/opt/MoonRay/installs/ -DCMAKE_SYSTEM_PROCESSOR=AARCH64 -DTBB_INCLUDE_DIR=/opt/MoonRay/installs/include/  -DCMAKE_PREFIX_PATH=/opt/MoonRay/installs
+cd USD-prefix/src/USD-build/
+cmake --build .
+exit
+cd USD-prefix/src/USD-build/
+cmake --build .
+exit
+cmake --build .
+cd USD-prefix/src/USD-build/
+cmake --build .
+exit

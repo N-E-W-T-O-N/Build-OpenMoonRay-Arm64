@@ -15,10 +15,7 @@ function(ArrasCore_cxx_compile_options target)
                 -fno-omit-frame-pointer         # TODO: add a note
                 -fno-strict-aliasing            # TODO: add a note
                 -fno-var-tracking-assignments   # Turn off variable tracking
-                -march=core-avx2                # Specify the name of the target architecture
-                -mavx                           # x86 options
-                -mfma                           # x86 options
-                -msse                           # x86 options
+                -march=armv8-a
                 -pipe                           # Use pipes rather than intermediate files.
                 -pthread                        # Define additional macros required for using the POSIX threads library.
                 -Wall                           # Enable most warning messages.
@@ -48,7 +45,7 @@ function(ArrasCore_cxx_compile_options target)
         target_compile_options(${target}
             # TODO: Some if not all of these should probably be PUBLIC
             PRIVATE
-                -march=core-avx2                # Specify the name of the target architecture
+                -march=armv8-a                # Specify the name of the target architecture
                 -fdelayed-template-parsing      # Shader.h has a template method that uses a moonray class which is no available to scene_rdl2 and is only used in moonray+
                 -Wno-deprecated-declarations    # disable auto_ptr deprecated warnings from log4cplus-1.
         )
@@ -56,7 +53,7 @@ function(ArrasCore_cxx_compile_options target)
         target_compile_options(${target}
             # TODO: Some if not all of these should probably be PUBLIC
             PRIVATE
-                -march=core-avx2                # Specify the name of the target architecture
+                -march=armv8-a                # Specify the name of the target architecture
         )
     endif()
 endfunction()

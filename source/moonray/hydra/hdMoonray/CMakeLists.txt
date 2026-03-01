@@ -28,6 +28,7 @@ set(BUILD_SHARED_LIBS ON)
 # and PXR_INCLUDE_DIRS to be set (e.g. in CMake preset).
 # A standard installation should not require these...
 if(NOT pxr_FOUND)
+    #find_package(OpenGL REQUIRED)
     find_package(pxr REQUIRED)
 endif()
 

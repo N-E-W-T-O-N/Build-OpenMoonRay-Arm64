@@ -5,6 +5,31 @@ cmake_minimum_required (VERSION 3.23.1)
 
 project(openmoonray)
 
+# Detect target architecture
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+  message(STATUS "Configuring for ARM64")
+    
+  # Define NEON
+  add_compile_definitions(MOONRAY_SIMD_NEON=1)  # ✓ CORRECT
+  add_compile_definitions(__ARM_NEON__=1)
+  
+  # Do NOT define __AVX__ - will be handled by SIMDe
+  #add_compile_options(-U__AVX__ -U__AVX2__)
+  
+  set(SIMD_FLAGS "-march=armv8-a+fp+simd")
+    # NEON2X compatibility flag
+  set(MOONRAY_ISA_NEON2X 1)
+  
+  set(ISPC_TARGET "neon-i32x4")
+else()
+  message(FATAL_ERROR "Only ARM64 supported")
+endif()
+
+
+# Apply SIMD flags globally
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SIMD_FLAGS}")
+
+
 list(APPEND CMAKE_MESSAGE_CONTEXT ${PROJECT_NAME})
 if(NOT DEFINED CMAKE_INSTALL_PREFIX OR ${CMAKE_INSTALL_PREFIX} STREQUAL "/usr/local")
     set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/release)

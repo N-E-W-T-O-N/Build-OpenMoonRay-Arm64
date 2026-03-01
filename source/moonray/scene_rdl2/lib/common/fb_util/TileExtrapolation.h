@@ -131,12 +131,12 @@ protected:
         // bit scan forward : This function does not work when mask64 == 0 because bsf return undefined value.
         //
         uint64_t result;
-        #ifdef __APPLE__ // TODO: this was causing trouble with the viewport going white for anything not full32, re-check
+       // #ifdef __APPLE__ // TODO: this was causing trouble with the viewport going white for anything not full32, re-check
         result =  __builtin_ctzll(mask64);
         if (mask64 == 0) return 0;
-        #else
-        asm volatile("bsfq %1, %0": "=r"(result): "r"(mask64));
-        #endif 
+       // #else
+       // asm volatile("bsfq %1, %0": "=r"(result): "r"(mask64));
+       // #endif 
         return result;
     }
 }; // TileExtrapolationPhaseManager
@@ -551,13 +551,15 @@ TileExtrapolation::countRightZeroBit(uint64_t mask64) const
     //
     // bit scan forward : counting zero bits on right side
     //
-    uint64_t result;
-#ifdef __APPLE__ // TODO: double check this
-        result =  __builtin_ctzll(mask64);
-    #else
-    asm volatile("bsfq %1, %0": "=r"(result): "r"(mask64));
-    #endif 
-    return result;
+    // Use compiler builtin for cross-platform trailing-zero count
+    return __builtin_ctzll(mask64);
+//    uint64_t result;
+//#ifdef __APPLE__ // TODO: double check this
+//        result =  __builtin_ctzll(mask64);
+//    #else
+//    asm volatile("bsfq %1, %0": "=r"(result): "r"(mask64));
+//    #endif 
+//    return result;
 }
 
 } // namespace fb_util

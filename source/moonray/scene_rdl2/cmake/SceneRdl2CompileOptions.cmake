@@ -4,6 +4,14 @@
 include(CheckLanguage)
 
 function(SceneRdl2_cxx_compile_options target)
+  
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    target_compile_options(${target}
+      PRIVATE
+        -U__SSE__ -U__SSE2__ -U__AVX__ -U__AVX2__ -U__SSE3__
+    )
+  endif()
+  
     if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options(${target}
             PRIVATE
@@ -16,10 +24,7 @@ function(SceneRdl2_cxx_compile_options target)
                 -fno-omit-frame-pointer         # TODO: add a note
                 -fno-strict-aliasing            # TODO: add a note
                 -fno-var-tracking-assignments   # Turn off variable tracking
-                -march=core-avx2                # Specify the name of the target architecture
-                -mavx                           # x86 options
-                -mfma                           # x86 options
-                -msse                           # x86 options
+                -march=armv8.2-a                  # Specify the name of the target architecture
                 -pipe                           # Use pipes rather than intermediate files.
                 -pthread                        # Define additional macros required for using the POSIX threads library.
                 -Wall                           # Enable most warning messages.
@@ -46,10 +51,14 @@ function(SceneRdl2_cxx_compile_options target)
                 >
         )
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL Clang)
-        target_compile_options(${target}
-            # TODO: Some if not all of these should probably be PUBLIC
-            PRIVATE
-                -march=core-avx2                # Specify the name of the target architecture
+    target_compile_options(${target}
+        PRIVATE
+            $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>:
+                -march=armv8-a+fp+simd
+            >
+            $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:
+                -march=core-avx2
+            >
                 -fdelayed-template-parsing      # Shader.h has a template method that uses a moonray class which is no available to scene_rdl2 and is only used in moonray+
                 -Wno-deprecated-declarations    # disable auto_ptr deprecated warnings from log4cplus-1.
                 -Wno-unused-value               # caused by opt-debug build and MNRY_VERIFY.
@@ -60,10 +69,14 @@ function(SceneRdl2_cxx_compile_options target)
                 -Wno-gnu-alignof-expression
         )
     elseif (CMAKE_CXX_COMPILER_ID STREQUAL Intel)
-        target_compile_options(${target}
-            # TODO: Some if not all of these should probably be PUBLIC
-            PRIVATE
-                -march=core-avx2                # Specify the name of the target architecture
+    target_compile_options(${target}
+        PRIVATE
+            $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>:
+                -march=armv8-a+fp+simd
+            >
+            $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:
+                -march=core-avx2 -mavx
+            >
         )
     endif()
 endfunction()
@@ -119,22 +132,21 @@ function(SceneRdl2_ispc_compile_options target)
             set(objOut "${CMAKE_CURRENT_BINARY_DIR}/${srcName}.o")
             set(depFile "${CMAKE_CURRENT_BINARY_DIR}/${srcName}.dep")
             add_custom_command(
-                OUTPUT ${objOut}
-                COMMAND ${ISPC_COMPILER} ${CMAKE_CURRENT_SOURCE_DIR}/${src}
-                    -o ${objOut}
-                    -h "./${ISPC_HEADER_DIRECTORY}/${srcName}${ISPC_HEADER_SUFFIX}"
-                    -M -MF ${depFile}
-                    --arch=aarch64                      # TODO: hardcoded...
-                    --target=${ISPC_INSTRUCTION_SETS}
-                    --target-os=macos
-                    ${commonOptions}
-                    ${configDepFlags}
-                    "-I$<JOIN:$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>,;-I>"
-                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-                COMMAND_EXPAND_LISTS
-                VERBATIM
-                DEPFILE ${depFile}
-                DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${src})
+                    OUTPUT ${objOut}
+                    COMMAND ${ISPC_COMPILER} ${CMAKE_CURRENT_SOURCE_DIR}/${src}
+                        -o ${objOut}
+                        -h "./${ISPC_HEADER_DIRECTORY}/${srcName}${ISPC_HEADER_SUFFIX}"
+                        -M -MF ${depFile}
+                        --target-os=linux
+                        --target=${GLOBAL_ISPC_INSTRUCTION_SETS}
+                        ${commonOptions}
+                        ${configDepFlags}
+                        "-I$<JOIN:$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>,;-I>"
+                    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+                    COMMAND_EXPAND_LISTS
+                    VERBATIM
+                    DEPFILE ${depFile}
+                    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${src})
             list(APPEND ISPC_TARGET_OBJECTS ${objOut})
         endforeach()
         target_link_libraries(${target}

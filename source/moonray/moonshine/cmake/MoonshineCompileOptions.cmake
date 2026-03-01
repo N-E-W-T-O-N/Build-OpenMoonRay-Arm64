@@ -13,8 +13,7 @@ function(${PROJECT_NAME}_cxx_compile_options target)
                 -fno-strict-aliasing            # TODO: add a note
                 -fno-var-tracking-assignments   # Turn off variable tracking
                 -fpermissive                    # Downgrade some diagnostics about nonconformant code from errors to warnings.
-                -march=core-avx2                # Specify the name of the target architecture
-                -mavx                           # x86 options
+                -march=armv8-a                  # Specify the name of the target architecture
                 -pipe                           # Use pipes rather than intermediate files.
                 -pthread                        # Define additional macros required for using the POSIX threads library.
                 -w                              # Inhibit all warning messages.
@@ -38,7 +37,12 @@ function(${PROJECT_NAME}_cxx_compile_options target)
         target_compile_options(${target}
             # TODO: Some if not all of these should probably be PUBLIC
             PRIVATE
-                -march=core-avx2                # Specify the name of the target architecture
+                $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>:
+                    -march=armv8-a+fp+simd
+                >
+                $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:
+                    -march=core-avx2
+                >               # Specify the name of the target architecture
                 -fdelayed-template-parsing      # Shader.h has a template method that uses a moonray class which is no available to scene_rdl2 and is only used in moonray+
                 -Wno-deprecated-declarations    # disable auto_ptr deprecated warnings from log4cplus-1.
                 -Wno-unused-value               # caused by opt-debug build and MNRY_VERIFY.
@@ -50,9 +54,13 @@ function(${PROJECT_NAME}_cxx_compile_options target)
         target_compile_options(${target}
             # TODO: Some if not all of these should probably be PUBLIC
             PRIVATE
-                -march=core-avx2                # Specify the name of the target architecture
-                -mavx
-                -Qoption,cpp,--print_include_stack
+                $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>:
+                        -march=armv8-a+fp+simd
+                    >
+                    $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:
+                        -march=core-avx2 -mavx
+                        -Qoption,cpp,--print_include_stack
+                    >
                 -fmerge-debug-strings
                 -fexceptions                    # Enable exception handling.
                 -fno-strict-aliasing            # TODO: add a note
@@ -120,7 +128,7 @@ function(${PROJECT_NAME}_ispc_compile_options target)
                     -M -MF ${depFile}
                     --arch=aarch64                      # TODO: hardcoded...
                     --target=${ISPC_INSTRUCTION_SETS}
-                    --target-os=macos
+                    --target-os=linux
                     ${commonOptions}
                     ${configDepFlags}
                     "-I$<JOIN:$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>,;-I>"

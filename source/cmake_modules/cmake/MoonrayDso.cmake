@@ -1,4 +1,4 @@
-# Copyright 2023-2024 DreamWorks Animation LLC
+# Copyright 2023-2025 DreamWorks Animation LLC
 # SPDX-License-Identifier: Apache-2.0
 
 include(OMR_Platform)
@@ -15,8 +15,7 @@ function(Moonray_dso_cxx_compile_options target)
                 -fno-strict-aliasing            # TODO: add a note
                 -fno-var-tracking-assignments   # Turn off variable tracking
                 -fpermissive                    # Downgrade some diagnostics about nonconformant code from errors to warnings.
-                -march=core-avx2                # Specify the name of the target architecture
-                -mavx                           # x86 options
+                -march=armv8-a                  # Specify the name of the target architecture
                 -pipe                           # Use pipes rather than intermediate files.
                 -pthread                        # Define additional macros required for using the POSIX threads library.
                 -w                              # Inhibit all warning messages.
@@ -40,8 +39,7 @@ function(Moonray_dso_cxx_compile_options target)
         target_compile_options(${target}
             # TODO: Some if not all of these should probably be PUBLIC
             PRIVATE
-                -march=core-avx2                # Specify the name of the target architecture
-                -mavx                           # x86 options
+                -march=armv8-a                  # Specify the name of the target architecture
                 -fdelayed-template-parsing      # Shader.h has a template method that uses a moonray class which is no available to scene_rdl2 and is only used in moonray+
                 -Wno-deprecated-declarations    # disable auto_ptr deprecated warnings from log4cplus-1.
                 -Wno-unused-value               # For opt-debug build MNRY_VERIFY(exp) the value is not used.
@@ -50,8 +48,7 @@ function(Moonray_dso_cxx_compile_options target)
         target_compile_options(${target}
             # TODO: Some if not all of these should probably be PUBLIC
             PRIVATE
-                -march=core-avx2                # Specify the name of the target architecture
-                -mavx                           # x86 options
+                -march=armv8-a                  # Specify the name of the target architecture
         )
     endif()
 endfunction()
@@ -113,7 +110,7 @@ function(Moonray_dso_ispc_compile_options target)
                     -M -MF ${depFile}
                     --arch=aarch64                      # TODO: hardcoded...
                     --target=${ISPC_INSTRUCTION_SETS}
-                    --target-os=macos
+                    --target-os=linux
                     ${commonOptions}
                     ${configDepFlags}
                     "-I$<JOIN:$<TARGET_PROPERTY:${target},INCLUDE_DIRECTORIES>,;-I>"

@@ -7,17 +7,24 @@
 #include <algorithm>
 #include <iostream>
 
-#ifdef __APPLE__
+#include <fstream>
+
+#if defined(__APPLE__)
 #include <arm_neon.h>
 #include <sys/sysctl.h>
-#else // else __APPLE__
-#ifdef __INTEL_COMPILER 
-// We don't need any include for half float instructions
-#else // else __INTEL_COMPILER
-#include <x86intrin.h>          // _mm_cvtps_ph, _cvtph_ps : for GCC build
-#endif // end !__INTEL_COMPILER
-#include <fstream>
-#endif 
+
+#elif defined(__ARM_NEON__) || defined(__aarch64__)
+// ARM64 (Linux / Android / etc.)
+#include <arm_neon.h>
+
+#elif defined(__INTEL_COMPILER)
+// Intel compiler (no extra includes needed)
+
+#else //__APPL__
+#include <x86intrin.h>  // _mm_cvtps_ph, _cvtph_ps : for GCC build
+#endif
+
+
 
 namespace scene_rdl2 {
 namespace grid_util {
@@ -267,7 +274,7 @@ ShmFb::f32touc8(const float f)
 unsigned short
 ShmFb::f32toh16(const float f)
 {
-#if defined(__ARM_NEON__)
+#if defined(__ARM_NEON__) || defined(__aarch64__)
     float16x4_t half_vec = vcvt_f16_f32(vdupq_n_f32(f));
     return *(unsigned short*)&(half_vec);
 #else
@@ -280,7 +287,7 @@ ShmFb::f32toh16(const float f)
 float    
 ShmFb::h16tof32(const unsigned short h)
 {
-#if defined(__ARM_NEON__)
+#if defined(__ARM_NEON__) || defined(__aarch64__)
     float32x4_t fVec = vcvt_f32_f16(vdup_n_f16(*(__fp16*)&h));
     return *(float*)&fVec;
 #else

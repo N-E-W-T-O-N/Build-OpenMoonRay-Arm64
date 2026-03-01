@@ -5,7 +5,7 @@
 
 // MoonRay begin *****
 #include "Platform.h"
-#if defined(__aarch64__)
+#if defined(__aarch64__) || defined(__ARM_NEON__)
    #include <scene_rdl2/common/arm/emulation.h>
 #else
 #include <x86intrin.h>
@@ -769,19 +769,36 @@ __forceinline void prefetchL2EX(const void* ptr) {
 namespace scene_rdl2 {
 namespace util {
 
-#if (VLEN == 16u)
-  #define SIMD_MASK_TYPE __m512i
-  static const SIMD_MASK_TYPE sAllOnMask = _mm512_set1_epi32(0xffffffff);
-#elif (VLEN == 8u)
-  #define SIMD_MASK_TYPE __m256i
-  static const SIMD_MASK_TYPE sAllOnMask = _mm256_set1_epi32(0xffffffff);
-#elif (VLEN == 4u)
+#if defined(__ARM_NEON__) || defined(__aarch64__)
+  // ARM NEON only supports 128-bit vectors, force VLEN=4
   #define SIMD_MASK_TYPE __m128i
-  static const SIMD_MASK_TYPE sAllOnMask = _mm_set1_epi32(0xffffffff);
-#else
-  #error Unknown vector width
+    static const SIMD_MASK_TYPE sAllOnMask = _mm_set1_epi32(0xffffffff);
+    #elif (VLEN == 16u)
+      #define SIMD_MASK_TYPE __m512i
+      static const SIMD_MASK_TYPE sAllOnMask = _mm512_set1_epi32(0xffffffff);
+    #elif (VLEN == 8u)
+      #define SIMD_MASK_TYPE __m256i
+      static const SIMD_MASK_TYPE sAllOnMask = _mm256_set1_epi32(0xffffffff);
+    #elif (VLEN == 4u)
+      #define SIMD_MASK_TYPE __m128i
+      static const SIMD_MASK_TYPE sAllOnMask = _mm_set1_epi32(0xffffffff);
+    #else
+      #error Unknown vector width
 #endif
 // MoonRay end *****
 }
-}
 
+//#if (VLEN == 16u)
+//  #define SIMD_MASK_TYPE __m512i
+//  static const SIMD_MASK_TYPE sAllOnMask = _mm512_set1_epi32(0xffffffff);
+//#elif (VLEN == 8u)
+//  #define SIMD_MASK_TYPE __m256i
+//  static const SIMD_MASK_TYPE sAllOnMask = _mm256_set1_epi32(0xffffffff);
+//#elif (VLEN == 4u)
+//  #define SIMD_MASK_TYPE __m128i
+//  static const SIMD_MASK_TYPE sAllOnMask = _mm_set1_epi32(0xffffffff);
+//#else
+//  #error Unknown vector width
+//#endif
+// MoonRay end *****
+}

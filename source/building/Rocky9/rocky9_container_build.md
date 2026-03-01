@@ -10,13 +10,7 @@ To keep it concrete, I've chosen specific directory locations inside the contain
 - */build* CMake build directory
 - */installs/moonray* location to install MoonRay
 
-You will need Docker, Git, Git LFS, and a copy of the MoonRay source.  Some of these submodules use Git LFS to track some of the files. To install Git LFS use the following git command:
-
-```bash
-git lfs install
-```
-
-To clone the source from the github repo (on the host), use this git command:
+You will need Docker and a copy of the MoonRay source. To clone the source from the github repo (on the host), use this git command:
 
 ```bash
 > git clone --recurse-submodules https://github.com/dreamworksanimation/openmoonray.git 
@@ -63,10 +57,13 @@ The option "-j $(nproc)" tells CMake to use all available cores on your machine 
 The main CMake project in *openmoonray* builds MoonRay itself, and installs it to a specified location.
 
 ```bash
-> rm -rf /build/*
-> cd /source
-> cmake --preset rocky9-release -DMOONRAY_USE_OPTIX=NO
-> cmake --build --preset rocky9-release -- -j $(nproc)
+> cd /build
+> rm -rf *
+> cmake /source -DPYTHON_EXECUTABLE=python3 -DBOOST_PYTHON_COMPONENT_NAME=python39 -DABI_VERSION=0 -DMOONRAY_USE_OPTIX=NO
+> cmake --build --preset rocky9-release . -j $(nproc)
+
+> mkdir /installs/openmoonray
+> cmake --install /build --prefix /installs/openmoonray
 ```
 
 Set up the install and test moonray:

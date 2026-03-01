@@ -2,6 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 function(McrtDenoise_cxx_compile_options target)
+
+
+      if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+        target_compile_options(${target}
+          PRIVATE
+            -U__SSE__ -U__SSE2__ -U__AVX__ -U__AVX2__ -U__SSE3__
+        )
+      endif()
+
+
     if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options(${target}
             PRIVATE
@@ -11,7 +21,7 @@ function(McrtDenoise_cxx_compile_options target)
                 -fexceptions                    # Enable exception handling.
                 -fno-omit-frame-pointer         # TODO: add a note
                 -fno-strict-aliasing            # TODO: add a note
-                -march=core-avx2                # Specify the name of the target architecture
+                -march=armv8-a                  # Specify the name of the target architecture
                 -pipe                           # Use pipes rather than intermediate files.
                 -pthread                        # Define additional macros required for using the POSIX threads library.
                 -w                              # Inhibit all warning messages.

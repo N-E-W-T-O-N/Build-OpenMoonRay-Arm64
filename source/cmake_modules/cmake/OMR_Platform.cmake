@@ -68,7 +68,12 @@ if(IsDarwinPlatform)
     set(GLOBAL_ISPC_FLAGS -D__aarch64__ -D__APPLE__ -D__ARM_NEON__)
     set(GLOBAL_ISPC_INSTRUCTION_SETS neon-i32x4)
     set(CMAKE_OSX_ARCHITECTURES arm64)
-else() # Linux/Windows
+elseif(IsLinuxPlatform AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+        set(GLOBAL_CPP_FLAGS "")
+        set(GLOBAL_ISPC_FLAGS -D__aarch64__ -D__ARM_NEON__)
+        set(GLOBAL_ISPC_INSTRUCTION_SETS "neon-i32x4")
+        set(GLOBAL_INSTALL_RPATH "$ORIGIN" "$ORIGIN/../lib64" "${COMPILER_LIBRARY_DIR}")   
+else() # Linux x64_86/Windows
     set(GLOBAL_CPP_FLAGS __AVX__)
     set(GLOBAL_LINK_FLAGS "-Wl,--enable-new-dtags")
     set(GLOBAL_INSTALL_RPATH "$ORIGIN" "$ORIGIN/../lib64" "${COMPILER_LIBRARY_DIR}")
