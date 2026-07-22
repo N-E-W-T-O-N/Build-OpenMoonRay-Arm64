@@ -1,0 +1,47 @@
+name: Build light deps & publish artifact to HF
+
+# Runs on GitHub's NATIVE arm64 runners (no QEMU!) inside the deps-heavy image,
+# builds the fast deps on top of the baked-in oneTBB/OIDN/USD, then packages
+# the complete /opt/MoonRay/installs and uploads it to Hugging Face.
+#
+# Required secrets: DOCKERHUB_USERNAME, HF_TOKEN
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["26"]
+    paths:
+      - scripts/build_light_deps.sh
+      - .github/workflows/build-deps-artifact.yml
+
+env:
+  IMAGE: newton2022/moonray:deps-heavy-ubuntu26.04
+
+jobs:
+  build-deps:
+    runs-on: ubuntu-24.04-arm   # native arm64 — no QEMU emulation
+    container:
+      image: newton2022/moonray:deps-heavy-ubuntu26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build light deps into INSTALL_ROOT
+        run: |
+          chmod +x scripts/build_light_deps.sh
+          ./scripts/build_light_deps.sh
+
+      - name: Pack and upload to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO: Prince-1/Codes
+        run: |
+          chmod +x scripts/pack_and_upload_deps.sh
+          ./scripts/pack_and_upload_deps.sh ubuntu2604
+
+      - name: Also keep as workflow artifact (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonray-deps-aarch64-ubuntu2604
+          path: moonray-deps-aarch64-*.tar.zst
+          retention-days: 30
