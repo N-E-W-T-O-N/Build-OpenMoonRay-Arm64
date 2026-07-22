@@ -3,15 +3,15 @@
 #docker pull --platform arm64 newton2022/moonray:acl
 
 docker run \
+  --pull always \
   -v "$(pwd)/source:/source" \
   -v "$(pwd)/build:/build" \
   -v /tmp:/tmp \
   -w /build/deps \
-  --pull always \
+  --platform arm64 \
   --security-opt seccomp=unconfined \
    -v "$(pwd)/bash_history:/root/.bash_history:rw" \
   --rm -it \
-  --platform arm64 \
   newton2022/moonray:acl bash
 
 #  -v "$(pwd)/deps_CMakeLists.txt:/source/building/Rocky9/CMakeLists.txt:ro" \
