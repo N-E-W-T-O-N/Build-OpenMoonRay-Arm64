@@ -17,8 +17,8 @@
 # WARNING (WSL): use a native ext4 path (/home/...) for WORK, NOT /mnt/c or
 # /mnt/d — drvfs is very slow and mishandles symlinks/case, and USD will crawl.
 #
-# Afterwards run build_light_deps.sh + pack_and_upload_deps.sh in a container
-# with the SAME moonray-installs volume to publish the full dep tree to HF.
+# Afterwards run scripts/stage_usd.sh (same container) to stage USD into
+# ~/moonray-work/OpenUsd, then build+push the moonray:usd carrier image.
 set -euo pipefail
 
 INSTALL_ROOT="${INSTALL_ROOT:-/opt/MoonRay/installs}"

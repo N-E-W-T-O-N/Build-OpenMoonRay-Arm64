@@ -5,16 +5,16 @@
 # Stages:
 #   base  : distro packages
 #   tools : ninja / ISPC / sse2neon / SIMDe
-#   heavy : oneTBB + OpenSubdiv + OpenImageDenoise  (baked in)
+#   deps  : ALL non-USD deps — oneTBB, OpenSubdiv, OIDN, Embree, OCIO,
+#           OIIO, GLFW, Random123, OptiX headers
 #
-# OpenUSD is NOT built here — it is too slow for CI image builds.
-# Build it locally inside this image with scripts/build_usd.sh
-# (OpenSubdiv lives in this image because USD imaging requires it).
+# This whole image is built in CI (.github/workflows/build-ubuntu26-deps-image.yml)
+# on a native arm64 runner = "all major deps built in CI/CD".
 #
-# Light deps (embree, OCIO, OIIO, GLFW, Random123, OptiX headers)
-# are built by scripts/build_light_deps.sh in CI
-# (.github/workflows/build-deps-artifact.yml) on top of this image,
-# then the complete ${INSTALL_ROOT} is packaged and uploaded to HF.
+# OpenUSD is the ONLY dep NOT built here (too slow for CI). It is built
+# locally with scripts/build_usd.sh (against this image's TBB+OpenSubdiv)
+# and carried as the deps-usd middle image (deps-usd.Dockerfile), consumed
+# via COPY --from. No Hugging Face / tarball hosting is used.
 ############################################################
 FROM ubuntu:26.04 AS base
 ENV DEBIAN_FRONTEND=noninteractive
@@ -139,13 +139,21 @@ RUN mkdir -p /tmp/simde \
     && rm -rf /tmp/simde*
 
 ############################################################
-# Stage 3: heavy — the long builds, baked into the image
+# Stage 3: deps — all MoonRay deps except OpenUSD
 ############################################################
-FROM tools AS heavy
+FROM tools AS deps
 
 ARG TBB_VERSION=v2022.3.0
 ARG OPENSUBDIV_VERSION=v3_7_0
 ARG OIDN_VERSION=2.5.0
+ARG EMBREE_VERSION=v4.4.1
+ARG OCIO_VERSION=v2.5.2
+ARG OIIO_VERSION=v3.1.15.0
+ARG GLFW_VERSION=3.4
+ARG RANDOM123_VERSION=v1.14.0
+ARG OPTIX_VERSION=v7.6.0
+# x86-macro scrub for OIIO on aarch64 (prevents farmhash/simd misdetection)
+ARG ARM_SCRUB_FLAGS="-D__ARM_NEON__=1 -U__SSE__ -U__SSE2__ -U__AVX__ -U__AVX2__ -U__SSE4_1__ -U__SSE4_2__ -UFARMHASH_ASSUME_SSSE3 -UFARMHASH_ASSUME_SSE41"
 
 # oneTBB first — required by both OIDN (CPU device) and USD
 RUN git clone --depth=1 -b ${TBB_VERSION} https://github.com/uxlfoundation/oneTBB /tmp/onetbb && \
@@ -202,6 +210,75 @@ RUN wget -q https://github.com/RenderKit/oidn/releases/download/v${OIDN_VERSION}
     cmake --build . -j$(nproc) && \
     cmake --install . && \
     rm -rf /tmp/oidn*
+
+# Embree (NEON). Uses TBB tasking -> must come after oneTBB above.
+RUN git clone --depth=1 -b ${EMBREE_VERSION} https://github.com/embree/embree /tmp/embree && \
+    cmake -S /tmp/embree -B /tmp/embree/build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=${INSTALL_ROOT} \
+        -DCMAKE_PREFIX_PATH=${INSTALL_ROOT} \
+        -DEMBREE_ISPC_SUPPORT=OFF \
+        -DEMBREE_ARM=ON \
+        -DEMBREE_SYCL_SUPPORT=OFF \
+        -DEMBREE_IGNORE_INVALID_RAYS=ON \
+        -DEMBREE_RAY_MASK=ON \
+        -DEMBREE_TUTORIALS=OFF \
+        -DEMBREE_TASKING_SYSTEM=TBB \
+        -DBUILD_SHARED_LIBS=ON && \
+    cmake --build /tmp/embree/build -j$(nproc) && \
+    cmake --install /tmp/embree/build && \
+    rm -rf /tmp/embree
+
+# OpenColorIO
+RUN git clone --depth=1 -b ${OCIO_VERSION} https://github.com/AcademySoftwareFoundation/OpenColorIO /tmp/ocio && \
+    cmake -S /tmp/ocio -B /tmp/ocio/build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=${INSTALL_ROOT} \
+        -DCMAKE_PREFIX_PATH=${INSTALL_ROOT} \
+        -DOCIO_BUILD_APPS=OFF -DOCIO_BUILD_TESTS=OFF -DOCIO_BUILD_GPU_TESTS=OFF \
+        -DOCIO_BUILD_PYTHON=OFF -DOCIO_USE_SIMD=ON -DOCIO_BUILD_STATIC=OFF \
+        -DOCIO_WARNING_AS_ERROR=OFF -DBUILD_SHARED_LIBS=ON -DCMAKE_CXX_STANDARD=17 && \
+    cmake --build /tmp/ocio/build -j$(nproc) && \
+    cmake --install /tmp/ocio/build && \
+    rm -rf /tmp/ocio
+
+# OpenImageIO (x86-macro scrub mandatory on aarch64)
+RUN git clone --depth=1 -b ${OIIO_VERSION} https://github.com/OpenImageIO/oiio /tmp/oiio && \
+    cmake -S /tmp/oiio -B /tmp/oiio/build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=${INSTALL_ROOT} \
+        -DCMAKE_PREFIX_PATH=${INSTALL_ROOT} \
+        -DUSE_QT=0 -DOpenImageIO_BUILD_MISSING_DEPS=all -DUSE_PYTHON=1 \
+        -DBUILD_DOCS=OFF -DOIIO_BUILD_TESTS=OFF \
+        -DOIIO_NO_SSE=1 -DOIIO_NO_AVX=1 -DOIIO_NO_AVX2=1 -DOIIO_NO_AVX512=1 -DOIIO_NO_F16C=1 \
+        -DSIMD_FLAGS=-march=armv8.2-a \
+        -DCMAKE_CXX_FLAGS="${ARM_SCRUB_FLAGS}" \
+        -DCMAKE_C_FLAGS="${ARM_SCRUB_FLAGS}" && \
+    cmake --build /tmp/oiio/build -j$(nproc) && \
+    cmake --install /tmp/oiio/build && \
+    rm -rf /tmp/oiio
+
+# GLFW
+RUN git clone --depth=1 -b ${GLFW_VERSION} https://github.com/glfw/glfw /tmp/glfw && \
+    cmake -S /tmp/glfw -B /tmp/glfw/build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=${INSTALL_ROOT} \
+        -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF \
+        -DGLFW_INSTALL=ON -DBUILD_SHARED_LIBS=ON && \
+    cmake --build /tmp/glfw/build -j$(nproc) && \
+    cmake --install /tmp/glfw/build && \
+    rm -rf /tmp/glfw
+
+# Random123 (header-only)
+RUN git clone --depth=1 -b ${RANDOM123_VERSION} https://github.com/DEShawResearch/random123 /tmp/random123 && \
+    make -C /tmp/random123 install-include prefix=${INSTALL_ROOT} && \
+    rm -rf /tmp/random123
+
+# OptiX headers (build-time only; OptiX disabled at runtime on arm64)
+RUN git clone --depth=1 -b ${OPTIX_VERSION} https://github.com/NVIDIA/optix-dev /tmp/optix && \
+    mkdir -p ${INSTALL_ROOT}/include && \
+    cp -r /tmp/optix/include/. ${INSTALL_ROOT}/include/ && \
+    rm -rf /tmp/optix
 
 VOLUME /build
 WORKDIR /source
