@@ -14,6 +14,15 @@ HF_REPO="${HF_REPO:-Prince-1/Codes}"
 LABEL="${1:-ubuntu2604}"
 OUT="moonray-deps-aarch64-${LABEL}.tar.zst"
 
+# USD is built locally (scripts/build_usd.sh), not in CI — warn if the pack
+# is about to ship without it so a partial artifact is never a surprise
+if ! ls "${INSTALL_ROOT}"/lib/libusd_ms* >/dev/null 2>&1; then
+    echo "WARNING: no libusd_ms in ${INSTALL_ROOT} — packing WITHOUT OpenUSD." >&2
+    echo "         Run scripts/build_usd.sh first for a complete artifact."  >&2
+    LABEL="${LABEL}-nousd"
+    OUT="moonray-deps-aarch64-${LABEL}.tar.zst"
+fi
+
 # Record provenance inside the artifact
 {
     echo "built:    $(date -u +%Y-%m-%dT%H:%M:%SZ)"

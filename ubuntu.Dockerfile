@@ -5,10 +5,14 @@
 # Stages:
 #   base  : distro packages
 #   tools : ninja / ISPC / sse2neon / SIMDe
-#   heavy : oneTBB + OpenImageDenoise + OpenUSD  (the slow builds — baked in)
+#   heavy : oneTBB + OpenSubdiv + OpenImageDenoise  (baked in)
 #
-# Light deps (embree, OCIO, OIIO, OpenSubdiv, GLFW, Random123,
-# OptiX headers) are built by scripts/build_light_deps.sh in CI
+# OpenUSD is NOT built here — it is too slow for CI image builds.
+# Build it locally inside this image with scripts/build_usd.sh
+# (OpenSubdiv lives in this image because USD imaging requires it).
+#
+# Light deps (embree, OCIO, OIIO, GLFW, Random123, OptiX headers)
+# are built by scripts/build_light_deps.sh in CI
 # (.github/workflows/build-deps-artifact.yml) on top of this image,
 # then the complete ${INSTALL_ROOT} is packaged and uploaded to HF.
 ############################################################
@@ -140,8 +144,8 @@ RUN mkdir -p /tmp/simde \
 FROM tools AS heavy
 
 ARG TBB_VERSION=v2022.3.0
+ARG OPENSUBDIV_VERSION=v3_7_0
 ARG OIDN_VERSION=2.5.0
-ARG USD_VERSION=v26.03
 
 # oneTBB first — required by both OIDN (CPU device) and USD
 RUN git clone --depth=1 -b ${TBB_VERSION} https://github.com/uxlfoundation/oneTBB /tmp/onetbb && \
@@ -157,6 +161,25 @@ RUN git clone --depth=1 -b ${TBB_VERSION} https://github.com/uxlfoundation/oneTB
     cmake --build . -j$(nproc) && \
     cmake --install . && \
     rm -rf /tmp/onetbb
+
+# OpenSubdiv — required by OpenUSD imaging (built locally later via
+# scripts/build_usd.sh), so it must already be in the image
+RUN git clone --depth=1 -b ${OPENSUBDIV_VERSION} https://github.com/PixarAnimationStudios/OpenSubdiv /tmp/opensubdiv && \
+    cd /tmp/opensubdiv && \
+    mkdir build && cd build && \
+    cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=${INSTALL_ROOT} \
+        -DPYTHON_EXECUTABLE=/usr/bin/python3 \
+        -DNO_PTEX=1 -DNO_OMP=1 -DNO_TBB=1 -DNO_CUDA=1 \
+        -DNO_GLFW_X11=1 -DNO_DOC=1 -DNO_OPENCL=1 \
+        -DNO_CLEW=1 -DNO_REGRESSION=1 -DNO_EXAMPLES=1 \
+        -DNO_TUTORIALS=1 -DNO_GLTESTS=1 \
+        -DNO_MACOS_FRAMEWORK=1 -DNO_METAL=1 \
+        -DNO_TESTS=1 && \
+    cmake --build . -j$(nproc) && \
+    cmake --install . && \
+    rm -rf /tmp/opensubdiv
 
 # OpenImageDenoise — use the release .src tarball (includes trained weights;
 # a plain git clone would need submodules/LFS for them)
@@ -179,34 +202,6 @@ RUN wget -q https://github.com/RenderKit/oidn/releases/download/v${OIDN_VERSION}
     cmake --build . -j$(nproc) && \
     cmake --install . && \
     rm -rf /tmp/oidn*
-
-# OpenUSD — monolithic, the proven v26.03 configuration
-RUN git clone --depth=1 -b ${USD_VERSION} https://github.com/PixarAnimationStudios/OpenUSD /tmp/USD && \
-    cd /tmp/USD && \
-    mkdir build && cd build && \
-    cmake .. \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=${INSTALL_ROOT} \
-        -DCMAKE_PREFIX_PATH=${INSTALL_ROOT} \
-        -DPXR_BUILD_MONOLITHIC=ON \
-        -DPXR_ENABLE_PYTHON_SUPPORT=ON \
-        -DPython3_EXECUTABLE=/usr/bin/python3 \
-        -DTBB_DIR=${INSTALL_ROOT}/lib/cmake/TBB \
-        -DPXR_BUILD_TESTS=OFF \
-        -DPXR_BUILD_EXAMPLES=OFF \
-        -DPXR_BUILD_TUTORIALS=OFF \
-        -DPXR_BUILD_USD_TOOLS=ON \
-        -DPXR_ENABLE_PTEX_SUPPORT=OFF \
-        -DPXR_ENABLE_OPENVDB_SUPPORT=OFF \
-        -DPXR_BUILD_USDVIEW=OFF \
-        -DPXR_ENABLE_GL_SUPPORT=ON \
-        -DPXR_BUILD_IMAGING=ON \
-        -DPXR_BUILD_USD_IMAGING=ON \
-        -DPXR_BUILD_DOCUMENTATION=OFF \
-        -DTBB_SUPPRESS_DEPRECATED_MESSAGES=1 && \
-    cmake --build . -j$(nproc) && \
-    cmake --install . && \
-    rm -rf /tmp/USD
 
 VOLUME /build
 WORKDIR /source

@@ -15,7 +15,6 @@ mkdir -p "${INSTALL_ROOT}" "${WORK}"
 EMBREE_VERSION=v4.4.1
 OCIO_VERSION=v2.5.2
 OIIO_VERSION=v3.1.15.0
-OPENSUBDIV_VERSION=v3_7_0
 GLFW_VERSION=3.4
 RANDOM123_VERSION=v1.14.0
 OPTIX_VERSION=v7.6.0
@@ -71,14 +70,8 @@ build oiio https://github.com/OpenImageIO/oiio "${OIIO_VERSION}" \
     -DCMAKE_CXX_FLAGS="${ARM_SCRUB_FLAGS}" \
     -DCMAKE_C_FLAGS="${ARM_SCRUB_FLAGS}"
 
-# ---- OpenSubdiv ----
-build opensubdiv https://github.com/PixarAnimationStudios/OpenSubdiv "${OPENSUBDIV_VERSION}" \
-    -DNO_PTEX=1 -DNO_OMP=1 -DNO_TBB=1 -DNO_CUDA=1 \
-    -DNO_GLFW_X11=1 -DNO_DOC=1 -DNO_OPENCL=1 \
-    -DNO_CLEW=1 -DNO_REGRESSION=1 -DNO_EXAMPLES=1 \
-    -DNO_TUTORIALS=1 -DNO_GLTESTS=1 -DNO_MACOS_FRAMEWORK=1 -DNO_METAL=1 -DNO_TESTS=1
-
 # ---- GLFW ----
+# (OpenSubdiv is baked into the deps-heavy image — USD needs it there)
 build glfw https://github.com/glfw/glfw "${GLFW_VERSION}" \
     -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_DOCS=OFF \
     -DGLFW_INSTALL=ON -DBUILD_SHARED_LIBS=ON
