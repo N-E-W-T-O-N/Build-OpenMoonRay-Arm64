@@ -24,8 +24,20 @@ set -euo pipefail
 INSTALL_ROOT="${INSTALL_ROOT:-/opt/MoonRay/installs}"
 JOBS="${JOBS:-$(nproc)}"
 USD_VERSION="${USD_VERSION:-v26.03}"
-WORK="${WORK:-/tmp/usd-build}"    # override with a persistent mount to resume
+WORK="${WORK:-/work}"    # override with a persistent mount to resume
 CLEAN="${CLEAN:-0}"               # set to 1 to delete WORK after a successful install
+
+# Preflight: the build tools must resolve to real executables. If cmake is
+# missing/shadowed the configure line's arg becomes argv[0] and bash reports
+# a confusing "<path>: Is a directory" — check up front instead.
+for tool in cmake git; do
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+        echo "ERROR: '${tool}' not found in PATH (${PATH}). Are you inside the" >&2
+        echo "deps-heavy image? Try: apt-get update && apt-get install -y ${tool}" >&2
+        exit 1
+    fi
+done
+echo "cmake: $(command -v cmake) ($(cmake --version | head -1))"
 
 # USD imaging hard-requires OpenSubdiv — fail early with a clear message
 if [ ! -d "${INSTALL_ROOT}/include/opensubdiv" ]; then
