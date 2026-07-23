@@ -252,6 +252,7 @@ RUN git clone --depth=1 -b ${OIIO_VERSION} https://github.com/OpenImageIO/oiio /
         -DCMAKE_INSTALL_PREFIX=${INSTALL_ROOT} \
         -DCMAKE_PREFIX_PATH=${INSTALL_ROOT} \
         -DUSE_QT=0 -DOpenImageIO_BUILD_MISSING_DEPS=all -DUSE_PYTHON=1 \
+        -DENABLE_LIBUHDR=OFF \
         -DBUILD_DOCS=OFF -DOIIO_BUILD_TESTS=OFF \
         -DOIIO_NO_SSE=1 -DOIIO_NO_AVX=1 -DOIIO_NO_AVX2=1 -DOIIO_NO_AVX512=1 -DOIIO_NO_F16C=1 \
         -DSIMD_FLAGS=-march=armv8.2-a \
