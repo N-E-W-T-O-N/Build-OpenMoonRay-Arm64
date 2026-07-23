@@ -10,16 +10,14 @@ name: Build & Push moonray:ubuntu-final
 #
 # Required secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
 
+# Depends on the ubuntu deps image ONLY — USD rarely changes; after a rare
+# moonray:usd re-push, trigger this manually (workflow_dispatch / gh workflow run).
 on:
   workflow_dispatch:
   # ubuntu (deps-heavy) image was rebuilt -> rebuild final
   workflow_run:
     workflows: ["Build & Push deps-heavy Ubuntu 26.04 image"]
     types: [completed]
-  # usd carrier was pushed locally -> fire this from the host with:
-  #   gh api repos/N-E-W-T-O-N/Build-OpenMoonRay-Arm64/dispatches -f event_type=usd-updated
-  repository_dispatch:
-    types: [usd-updated]
   # final.Dockerfile itself changed
   push:
     branches: ["26"]

@@ -76,6 +76,9 @@ RUN apt-get update &&  \
     libopenjp2-7-dev \
     libopenvdb-dev \
     libptexenc-dev \
+    libyaml-cpp-dev \
+    libexpat1-dev \
+    libpystring-dev \
 # Logging, testing, and multimedia
     ffmpeg \
     liblog4cplus-dev \
