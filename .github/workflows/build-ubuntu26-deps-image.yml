@@ -18,6 +18,11 @@ env:
   IMAGE_NAME: moonray
   TAG: deps-heavy-ubuntu26.04
 
+# needed to dispatch the final-image workflow after a successful push
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04-arm   # native arm64 — no QEMU emulation
@@ -45,3 +50,11 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache-ubuntu26
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache-ubuntu26,mode=max
+
+      # workflow_run only fires from the default branch, so chain explicitly:
+      # after a successful image push, dispatch the final-image build on this branch.
+      - name: Trigger moonray:ubuntu-final build
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build-final-image.yml --ref ${{ github.ref_name }} --repo ${{ github.repository }}

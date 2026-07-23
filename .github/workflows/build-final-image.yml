@@ -10,14 +10,13 @@ name: Build & Push moonray:ubuntu-final
 #
 # Required secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
 
-# Depends on the ubuntu deps image ONLY — USD rarely changes; after a rare
-# moonray:usd re-push, trigger this manually (workflow_dispatch / gh workflow run).
+# Depends on the ubuntu deps image ONLY — the deps workflow dispatches this
+# directly after a successful push (workflow_run can't be used: it only fires
+# from the default branch, and we work on branch 26). USD rarely changes;
+# after a rare moonray:usd re-push, run this manually:
+#   gh workflow run build-final-image.yml --ref 26
 on:
   workflow_dispatch:
-  # ubuntu (deps-heavy) image was rebuilt -> rebuild final
-  workflow_run:
-    workflows: ["Build & Push deps-heavy Ubuntu 26.04 image"]
-    types: [completed]
   # final.Dockerfile itself changed
   push:
     branches: ["26"]
@@ -32,8 +31,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04-arm   # native arm64
-    # skip if the upstream deps build failed (workflow_run fires on any conclusion)
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
