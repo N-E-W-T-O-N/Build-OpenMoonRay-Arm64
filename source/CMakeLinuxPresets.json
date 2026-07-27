@@ -69,6 +69,49 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceParentDir}/../installs/openmoonray"
             },
             "generator": "Unix Makefiles"
+        },
+        {
+            "name": "ubuntu-arm64-environment",
+            "hidden": true,
+            "environment": {
+                "DEPS_ROOT": "/opt/MoonRay/installs",
+                "BUILD_DIR": "${sourceParentDir}/../build",
+                "Boost_ROOT": "$env{DEPS_ROOT}",
+                "Libuuid_ROOT": "$env{DEPS_ROOT}",
+                "CppUnit_ROOT": "$env{DEPS_ROOT}",
+                "ISPC": "$env{DEPS_ROOT}/bin/ispc",
+                "JsonCpp_ROOT": "$env{DEPS_ROOT}",
+                "Libcurl_ROOT": "$env{DEPS_ROOT}",
+                "Log4cplus_ROOT": "$env{DEPS_ROOT}",
+                "LUA_DIR": "$env{DEPS_ROOT}",
+                "OpenSubDiv_ROOT": "$env{DEPS_ROOT}",
+                "OpenVDB_ROOT": "$env{DEPS_ROOT}",
+                "Random123_ROOT": "$env{DEPS_ROOT}",
+                "ZLIB_ROOT": "$env{DEPS_ROOT}"
+            },
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "$env{DEPS_ROOT}",
+                "PYTHON_EXECUTABLE": "python3",
+                "ABI_VERSION": "0",
+                "CMAKE_POLICY_VERSION_MINIMUM": "3.5",
+                "BOOST_PYTHON_COMPONENT_NAME": "python314",
+                "Python_EXECUTABLE": "/usr/bin/python3",
+                "Python3_EXECUTABLE": "/usr/bin/python3"
+            }
+        },
+        {
+            "name": "ubuntu-arm64-release",
+            "displayName": "Ubuntu 26.04 arm64 Release (CPU, no USD)",
+            "inherits": "ubuntu-arm64-environment",
+            "binaryDir": "$env{BUILD_DIR}",
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_INSTALL_PREFIX": "${sourceParentDir}/../installs/openmoonray",
+                "MOONRAY_USE_OPTIX": "NO",
+                "CMAKE_CUDA_COMPILER": "OFF",
+                "NO_USD": "TRUE"
+            }
         }
     ],
     "buildPresets": [
@@ -84,7 +127,18 @@
             "displayName": "Rocky9 Release (Houdini)",
             "configurePreset": "rocky9-houdini-release",
             "configuration": "Release",
-            "targets": ["install"]
+            "targets": [
+                "install"
+            ]
+        },
+        {
+            "name": "ubuntu-arm64-release",
+            "displayName": "Ubuntu 26.04 arm64 Release",
+            "configurePreset": "ubuntu-arm64-release",
+            "configuration": "Release",
+            "targets": [
+                "install"
+            ]
         }
     ]
 }

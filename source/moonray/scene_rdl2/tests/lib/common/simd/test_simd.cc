@@ -1,7 +1,7 @@
 // Copyright 2023-2024 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __APPLE__
+#if defined(__x86_64__) // x86 SVML/AVX-specific tests (was !__APPLE__; broke Linux arm64)
 #include "test_simd.h"
 #include <scene_rdl2/common/math/simd.h>
 #include <iomanip>

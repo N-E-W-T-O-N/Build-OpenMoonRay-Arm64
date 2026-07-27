@@ -286,7 +286,8 @@ createPoints(const scene_rdl2::rdl2::Geometry *rdlGeometry,
                               pointsName,
                               useFirstFrame,
                               useSecondFrame,
-                              primitiveAttributeTable);
+                              primitiveAttributeTable,
+                              generateContext.getRequestedAttributes());
 
     // Add explicit shading primitive attribute if it's enabled
     if (commonAttrs.explicitShading &&

@@ -1,4 +1,4 @@
-// Copyright 2024 DreamWorks Animation LLC
+// Copyright 2024-2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 #include <iostream>
 
@@ -9,23 +9,25 @@
 #include <sstream>
 #include <sys/shm.h>
 
-#ifdef __APPLE__
+#if defined(__aarch64__) // any aarch64 (was __APPLE__ — broke Linux arm64)
 #include <arm_neon.h>
-#else // else __APPLE__
-#ifdef __INTEL_COMPILER 
+#else // x86
+#ifdef __INTEL_COMPILER
 // We don't need any include for half float instructions
 #else // else __INTEL_COMPILER
 #include <x86intrin.h>          // _mm_cvtps_ph, _cvtph_ps : for GCC build
 #endif // end !__INTEL_COMPILER
-#endif 
+#endif
 
 float    
 h16tof32(const unsigned short h)
 {
 #if defined(__ARM_NEON__)
-	float output;
-	vst1q_f32(&output, vcvt_f32_f16(vld1_u16(&h)));
-	return output;
+    // GCC needs the explicit u16->f16 reinterpret; also the old code
+    // vst1q_f32'd 4 floats into a single float (out-of-bounds write) —
+    // extract lane 0 instead.
+    const float16x4_t h4 = vreinterpret_f16_u16(vdup_n_u16(h));
+    return vgetq_lane_f32(vcvt_f32_f16(h4), 0);
 #else
     return _cvtsh_ss(h); // Convert half 16bit float to full 32bit float
 #endif
@@ -49,6 +51,13 @@ bool
 accessSetupShm(const int shmId, void** addr, size_t* size)
 {
     (*addr) = nullptr;
+
+    // 
+    // This program only accesses the opened shared memory in a read-only manner, so strictly speaking,
+    // the third argument of shmat() does not have to be 0. It will also function correctly if SHM_RDONLY
+    // is specified. However, since this program is intended as a sample implementation of accessing the
+    // shared memory framebuffer without using the MoonRay API, I am using 0 here, i.e., read/write mode.
+    //
     if (((*addr) = static_cast<void*>(shmat(shmId, NULL, 0))) == reinterpret_cast<void*>(-1)) {
         return false; // shmat error
     }

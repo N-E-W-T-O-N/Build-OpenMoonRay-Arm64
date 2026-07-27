@@ -1,4 +1,4 @@
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PathVisualizerWindow.h"
@@ -37,12 +37,12 @@ PathVisualizerWindow::drawPixelSelector()
         const int pixelX = static_cast<int>(mManager->getPixelX());
         const int pixelY = static_cast<int>(mManager->getPixelY());
 
-        drawInputInt("Pixel X", pixelX, mMinPixelX, mMaxPixelX, [this](int value) {
-            this->mManager->setPixelX(static_cast<uint32_t>(std::max(0, value)), /*update*/ true);
+        drawInputInt("Pixel X", pixelX, mMinPixelX, mMaxPixelX, [&](int value) {
+            mManager->setPixelX(static_cast<uint32_t>(std::max(0, value)), /*update*/ true);
         });
 
-        drawInputInt("Pixel Y", pixelY, mMinPixelY, mMaxPixelY, [this](int value) {
-            this->mManager->setPixelY(static_cast<uint32_t>(std::max(0, value)), /*update*/ true);
+        drawInputInt("Pixel Y", pixelY, mMinPixelY, mMaxPixelY, [&](int value) {
+            mManager->setPixelY(static_cast<uint32_t>(std::max(0, value)), /*update*/ true);
         });
     }
     if (ImGui::IsItemHovered()) { ImGui::SetMouseCursor(ImGuiMouseCursor_Hand); }
@@ -64,18 +64,18 @@ PathVisualizerWindow::drawSamplingSettingsMenu()
         ImGui::BeginDisabled(useSceneSamples);
 
         // -------------------- Pixel Samples Input --------------------------- //
-        drawInputInt("Pixel Samples", mManager->getPixelSamples(), mMinPixelSamples, mMaxPixelSamples, [this](int value) {
-            this->mManager->setPixelSamples(value, /*update*/ true);
+        drawInputInt("Pixel Samples", mManager->getPixelSamples(), mMinPixelSamples, mMaxPixelSamples, [&](int value) {
+            mManager->setPixelSamples(value, /*update*/ true);
         });
         
         // -------------------- Light Samples Input --------------------------- //
-        drawInputInt("Light Samples", mManager->getLightSamples(), mMinLightSamples, mMaxLightSamples, [this](int value) {
-            this->mManager->setLightSamples(value, /*update*/ true);
+        drawInputInt("Light Samples", mManager->getLightSamples(), mMinLightSamples, mMaxLightSamples, [&](int value) {
+            mManager->setLightSamples(value, /*update*/ true);
         });
         
         // -------------------- BSDF Samples Input --------------------------- //
-        drawInputInt("BSDF  Samples", mManager->getBsdfSamples(), mMinBsdfSamples, mMaxBsdfSamples, [this](int value) {
-            this->mManager->setBsdfSamples(value, /*update*/ true);
+        drawInputInt("BSDF  Samples", mManager->getBsdfSamples(), mMinBsdfSamples, mMaxBsdfSamples, [&](int value) {
+            mManager->setBsdfSamples(value, /*update*/ true);
         });
 
         ImGui::EndDisabled();
@@ -90,8 +90,8 @@ PathVisualizerWindow::drawMaxDepthMenu()
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::CollapsingHeader("Max Depth")) {
 
-        drawInputInt("Max Depth", mManager->getMaxDepth(), mMinMaxDepth, mMaxMaxDepth, [this](int value) {
-            this->mManager->setMaxDepth(value, /*update*/ true);
+        drawInputInt("Max Depth", mManager->getMaxDepth(), mMinMaxDepth, mMaxMaxDepth, [&](int value) {
+            mManager->setMaxDepth(value, /*update*/ true);
         });
     }
     if (ImGui::IsItemHovered()) { ImGui::SetMouseCursor(ImGuiMouseCursor_Hand); }
@@ -103,61 +103,173 @@ PathVisualizerWindow::drawVisibilityTogglesMenu()
     // Default to open
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::CollapsingHeader("Visibility Toggles")) {
-        bool showDiffuse = mManager->getShowDiffuseRays();
-        bool showSpecular = mManager->getShowSpecularRays();
-        bool showBsdf = mManager->getShowBsdfSamples();
-        bool showLight = mManager->getShowLightSamples();
+        bool showDirectRays = mManager->getShowDirectRays();
+        bool showIndirectRays = mManager->getShowIndirectRays();
+        bool showSamples = mManager->getShowSamples();
+
+        // Indirect rays (continuing rays)
+        bool showIndirectDiffuse = mManager->getShowIndirectDiffuseRays();
+        bool showIndirectSpecular = mManager->getShowIndirectSpecularRays();
         
-        if (ImGui::Checkbox("Diffuse Rays", &showDiffuse)) {
-            mManager->setShowDiffuseRays(showDiffuse);
+        // Direct rays (occlusion rays)
+        bool showDirectDiffuse = mManager->getShowDirectDiffuseRays();
+        bool showDirectSpecular = mManager->getShowDirectSpecularRays();
+        bool showDirectLight = mManager->getShowDirectLightRays();
+        
+        // Samples
+        bool showDiffuseSamples = mManager->getShowDiffuseSamples();
+        bool showSpecularSamples = mManager->getShowSpecularSamples();
+        bool showLightSamples = mManager->getShowLightSamples();
+
+        // Parent checkbox for Indirect Rays
+        if (ImGui::Checkbox("Indirect Rays (Continuing)", &showIndirectRays)) {
+            mManager->setShowIndirectRays(showIndirectRays);
         }
-        if (ImGui::Checkbox("Specular Rays", &showSpecular)) {
-            mManager->setShowSpecularRays(showSpecular);
+        
+        // Indent child checkboxes
+        ImGui::Indent();
+        if (ImGui::Checkbox("Diffuse", &showIndirectDiffuse)) {
+            mManager->setShowIndirectDiffuseRays(showIndirectDiffuse);
         }
-        if (ImGui::Checkbox("Bsdf Samples", &showBsdf)) {
-            mManager->setShowBsdfSamples(showBsdf);
+        if (ImGui::Checkbox("Specular", &showIndirectSpecular)) {
+            mManager->setShowIndirectSpecularRays(showIndirectSpecular);
         }
-        if (ImGui::Checkbox("Light Samples", &showLight)) {
-            mManager->setShowLightSamples(showLight);
+        ImGui::Unindent();
+
+        ImGui::Spacing();
+        
+        // Parent checkbox for Direct Rays
+        if (ImGui::Checkbox("Direct Rays (Occlusion)", &showDirectRays)) {
+            mManager->setShowDirectRays(showDirectRays);
         }
+        
+        // Indent child checkboxes
+        ImGui::Indent();
+        if (ImGui::Checkbox("Diffuse##Direct", &showDirectDiffuse)) {
+            mManager->setShowDirectDiffuseRays(showDirectDiffuse);
+        }
+        if (ImGui::Checkbox("Specular##Direct", &showDirectSpecular)) {
+            mManager->setShowDirectSpecularRays(showDirectSpecular);
+        }
+        if (ImGui::Checkbox("Light", &showDirectLight)) {
+            mManager->setShowDirectLightRays(showDirectLight);
+        }
+        ImGui::Unindent();
+
+        ImGui::Spacing();
+        
+        // Parent checkbox for Samples
+        if (ImGui::Checkbox("Samples", &showSamples)) {
+            mManager->setShowSamples(showSamples);
+        }
+        
+        // Indent child checkboxes
+        ImGui::Indent();
+        if (ImGui::Checkbox("Diffuse##Samples", &showDiffuseSamples)) {
+            mManager->setShowDiffuseSamples(showDiffuseSamples);
+        }
+        if (ImGui::Checkbox("Specular##Samples", &showSpecularSamples)) {
+            mManager->setShowSpecularSamples(showSpecularSamples);
+        }
+        if (ImGui::Checkbox("Light##Samples", &showLightSamples)) {
+            mManager->setShowLightSamples(showLightSamples);
+        }
+        ImGui::Unindent();
     }
     if (ImGui::IsItemHovered()) { ImGui::SetMouseCursor(ImGuiMouseCursor_Hand); }
 }
 
 void
-PathVisualizerWindow::drawStyleMenu()
+PathVisualizerWindow::drawStyleMenu(Viewport* viewport)
 {
     // Default to open
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::CollapsingHeader("Style Options")) {
         // Line width control
         int roundedLineWidth = static_cast<uint32_t>(mManager->getLineWidth() + 0.5f);
-        drawInputInt("Line Width", roundedLineWidth, mMinLineWidth, mMaxLineWidth, [this](int value) {
-            this->mManager->setLineWidth(static_cast<float>(value));
-        });
-        // Hidden line opacity
-        drawSliderFloat("Hidden Line Opacity", mManager->getHiddenLineOpacity(), 0.0f, 1.0f, [this](float value) {
-            this->mManager->setHiddenLineOpacity(value);
+        drawInputInt("Line Width", roundedLineWidth, mMinLineWidth, mMaxLineWidth, [&](int value) {
+            mManager->setLineWidth(static_cast<float>(value));
         });
 
+        // Hidden line opacity
+        drawSliderFloat("Hidden Line Opacity", mManager->getHiddenLineOpacity(), 0.0f, 1.0f, [&](float value) {
+            mManager->setHiddenLineOpacity(value);
+        });
+
+        // Toggle off/on showing endpoints only
+        bool showOnlyEndpoints = viewport->getPVShowOnlyEndpoints();
+        if (ImGui::Checkbox("Show Endpoints Only", &showOnlyEndpoints)) {
+            viewport->setPVShowOnlyEndpoints(showOnlyEndpoints);
+        }
+
+
+        // Separator between display options and color pickers
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
         // Color pickers for different ray types
-        drawColorEdit("Diffuse Ray Color", mManager->getDiffuseRayColor(), [this](scene_rdl2::math::Color color) {
-            this->mManager->setDiffuseRayColor(color);
+        drawColorEdit("Camera Ray", mManager->getCameraRayColor(), [&](scene_rdl2::math::Color color) {
+            mManager->setCameraRayColor(color);
         });
-        drawColorEdit("Specular Ray Color", mManager->getSpecularRayColor(), [this](scene_rdl2::math::Color color) {
-            this->mManager->setSpecularRayColor(color);
+        
+        ImGui::Spacing();
+        ImGui::Text("Indirect Rays (Continuing):");
+        ImGui::Indent();
+        drawColorEdit("Diffuse", mManager->getIndirectDiffuseRayColor(), [&](scene_rdl2::math::Color color) {
+            mManager->setIndirectDiffuseRayColor(color);
         });
-        drawColorEdit("BSDF Sample Color", mManager->getBsdfSampleColor(), [this](scene_rdl2::math::Color color) {
-            this->mManager->setBsdfSampleColor(color);
+        drawColorEdit("Specular", mManager->getIndirectSpecularRayColor(), [&](scene_rdl2::math::Color color) {
+            mManager->setIndirectSpecularRayColor(color);
         });
-        drawColorEdit("Light Sample Color", mManager->getLightSampleColor(), [this](scene_rdl2::math::Color color) {
-            this->mManager->setLightSampleColor(color);
+        ImGui::Unindent();
+        
+        ImGui::Spacing();
+        ImGui::Text("Direct Rays (Occlusion):");
+        ImGui::Indent();
+        drawColorEdit("Diffuse##Direct", mManager->getDirectDiffuseRayColor(), [&](scene_rdl2::math::Color color) {
+            mManager->setDirectDiffuseRayColor(color);
         });
-        drawColorEdit("Camera Ray Color", mManager->getCameraRayColor(), [this](scene_rdl2::math::Color color) {
-            this->mManager->setCameraRayColor(color);
+        drawColorEdit("Specular##Direct", mManager->getDirectSpecularRayColor(), [&](scene_rdl2::math::Color color) {
+            mManager->setDirectSpecularRayColor(color);
+        });
+        drawColorEdit("Light", mManager->getDirectLightRayColor(), [&](scene_rdl2::math::Color color) {
+            mManager->setDirectLightRayColor(color);
+        });
+        ImGui::Unindent();
+    }
+    if (ImGui::IsItemHovered()) { ImGui::SetMouseCursor(ImGuiMouseCursor_Hand); }
+}
+
+void
+PathVisualizerWindow::drawMiscMenu()
+{
+    // Draw miscellaneous menu (including max ray length)
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    if (ImGui::CollapsingHeader("Miscellaneous")) {
+        drawInputFloat("Max Ray Length", mManager->getMaxRayLength(), [&](float value) {
+            mManager->setMaxRayLength(value, /*update*/ true);
         });
     }
     if (ImGui::IsItemHovered()) { ImGui::SetMouseCursor(ImGuiMouseCursor_Hand); }
+}
+
+void
+PathVisualizerWindow::drawNodeInfo()
+{
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    if (ImGui::CollapsingHeader("Node Info")) {
+        const int nodeIndex = mManager->getSelectedNode();
+        if (nodeIndex < 0) {
+            const std::string infoStr = "No node selected. In order to select a node, use the LEFT/RIGHT arrow "
+                                        "keys while holding SHIFT";
+            ImGui::TextWrapped("%s", infoStr.c_str());
+            return;
+        }
+
+        const std::string nodeInfo = mManager->getNodeInfo(static_cast<size_t>(nodeIndex));
+        ImGui::TextWrapped("%s", nodeInfo.c_str());
+    }
 }
 
 void
@@ -202,7 +314,11 @@ PathVisualizerWindow::draw(Viewport* viewport, const ImVec2& currentPixel, const
     // Create visibility toggles menu
     drawVisibilityTogglesMenu();
     // Create style options menu
-    drawStyleMenu();
+    drawStyleMenu(viewport);
+    // Create miscellaneous menu
+    drawMiscMenu();
+    // Create node information display
+    drawNodeInfo();
 
     ImGui::End();
     ImGui::PopStyleVar(2);

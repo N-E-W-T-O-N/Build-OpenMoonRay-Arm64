@@ -57,6 +57,18 @@ StatusBar::draw(Viewport* viewport, const ImVec2& currentPixel, const ImVec2& do
     ImGui::Text("%s", getCameraTypeStr(viewport->getActiveCameraType()).c_str());
     ImGui::SameLine(0.0f, mLargeSpace);
     ImGui::Text("%s", getRenderOutputStr(viewport->getRenderOutputName()).c_str());
+    
+    // Add help button at the end (right side) of the status bar
+    ImGui::SameLine(0.0f, mButtonSpace);
+    ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 20);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+    if (ImGui::Button("?", ImVec2(20, 16))) {
+        if (mHelpCallback) {
+            mHelpCallback();
+        }
+    }
+    ImGui::PopStyleVar();
+    
     ImGui::End();
     ImGui::PopStyleVar();
 }

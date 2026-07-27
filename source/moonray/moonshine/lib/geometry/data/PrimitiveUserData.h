@@ -24,7 +24,8 @@ processUserData(const scene_rdl2::rdl2::SceneObjectVector& arbitraryData,
                 const std::vector<std::string> * const partList,
                 const std::string& partName,
                 bool useFirstFrame, bool useSecondFrame,
-                moonray::shading::PrimitiveAttributeTable& primitiveAttributeTable);
+                moonray::shading::PrimitiveAttributeTable& primitiveAttributeTable,
+                const moonray::shading::AttributeKeySet& requestedAttributes);
 
 } // namespace geometry 
 } // namespace moonshine 

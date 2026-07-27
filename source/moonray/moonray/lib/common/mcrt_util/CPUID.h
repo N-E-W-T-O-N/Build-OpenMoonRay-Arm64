@@ -3,7 +3,9 @@
 
 #pragma once
 
-#if !defined(__APPLE__)
+// x86 CPUID instruction wrapper — arch-gated (was !__APPLE__, which wrongly
+// compiled this on Linux aarch64)
+#if defined(__x86_64__)
 
 #include <array>
 #include <atomic>

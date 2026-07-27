@@ -1,8 +1,6 @@
 // Copyright 2023-2024 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
-// Reproduction in whole or in part without prior written worleyPermission of a
-
 /// @file NoiseWorleyMap_v2.ispc
 
 #include "attributes.isph"
@@ -253,5 +251,3 @@ sample(const uniform Map * uniform map,
 }
 
 DEFINE_MAP_SHADER(NoiseWorleyMap_v2, sample)
-
-// Reproduction in whole or in part without prior written worleyPermission of a

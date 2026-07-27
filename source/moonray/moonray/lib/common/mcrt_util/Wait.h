@@ -46,12 +46,11 @@ inline void do_pause()
     YieldProcessor();
 #elif defined (__ICC)
     _mm_pause();
-#elif defined(__clang__)
-  #if defined(__aarch64__)
+#elif defined(__aarch64__)
+    // any compiler on aarch64 (GCC has no __builtin_ia32_pause there)
     __asm__ volatile("yield" ::: "memory");
-  #else // __aarch64__
+#elif defined(__clang__)
     __asm__ volatile("pause");
-  #endif // __aarch64__
 #else
     __builtin_ia32_pause();
 #endif

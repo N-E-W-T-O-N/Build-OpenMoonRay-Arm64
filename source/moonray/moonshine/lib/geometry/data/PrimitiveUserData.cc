@@ -5,6 +5,8 @@
 
 #include "PrimitiveUserData.h"
 
+#include <unordered_set>
+
 using namespace moonray;
 using namespace moonray::geom;
 using namespace moonray::shading;
@@ -340,8 +342,14 @@ processUserData(const scene_rdl2::rdl2::SceneObjectVector& arbitraryData,
                 const std::vector<std::string> * const partList,
                 const std::string& partName,
                 bool useFirstFrame, bool useSecondFrame,
-                shading::PrimitiveAttributeTable& primitiveAttributeTable)
+                shading::PrimitiveAttributeTable& primitiveAttributeTable,
+                const shading::AttributeKeySet& requestedAttributes)
 {
+    std::unordered_set<std::string> requestedNames;
+    for (const auto& key : requestedAttributes) {
+        requestedNames.insert(key.getName());
+    }
+
     for (auto sceneObject : arbitraryData) {
         const scene_rdl2::rdl2::UserData* userData = sceneObject->asA<scene_rdl2::rdl2::UserData>();
         if (!userData) {
@@ -350,92 +358,98 @@ processUserData(const scene_rdl2::rdl2::SceneObjectVector& arbitraryData,
 
         if (userData->hasBoolData()) {
             const scene_rdl2::rdl2::String& key = userData->getBoolKey();
-            // bool vector is a std::deque
-            const scene_rdl2::rdl2::BoolVector& constData = userData->getBoolValues();
-            std::vector<scene_rdl2::rdl2::Bool> data(constData.begin(), constData.end());
-            addCurvesPrimitiveAttribute(primitiveAttributeTable, key, partList, partName, std::move(data));
+            if (requestedNames.count(key) > 0) {
+                // bool vector is a std::deque
+                const scene_rdl2::rdl2::BoolVector& constData = userData->getBoolValues();
+                std::vector<scene_rdl2::rdl2::Bool> data(constData.begin(), constData.end());
+                addCurvesPrimitiveAttribute(primitiveAttributeTable, key, partList, partName, std::move(data));
+            }
         }
 
         if (userData->hasIntData()) {
             const scene_rdl2::rdl2::String& key = userData->getIntKey();
-            scene_rdl2::rdl2::IntVector data = userData->getIntValues();
-            addCurvesPrimitiveAttribute(primitiveAttributeTable, key, partList, partName, std::move(data));
+            if (requestedNames.count(key) > 0) {
+                scene_rdl2::rdl2::IntVector data = userData->getIntValues();
+                addCurvesPrimitiveAttribute(primitiveAttributeTable, key, partList, partName, std::move(data));
+            }
         }
 
-        std::vector<scene_rdl2::rdl2::FloatVector> floatData;
-        if (userData->hasFloatData0() && useFirstFrame) {
-            const scene_rdl2::rdl2::FloatVector& data0 = userData->getFloatValues0();
-            floatData.push_back(data0);
-        }
-        if (userData->hasFloatData1() && useSecondFrame) {
-            const scene_rdl2::rdl2::FloatVector& data1 = userData->getFloatValues1();
-            floatData.push_back(data1);
-        }
-        if (!floatData.empty()) {
-            const scene_rdl2::rdl2::String& key = userData->getFloatKey();
-            addCurvesPrimitiveAttribute(primitiveAttributeTable, key, partList, partName, std::move(floatData));
+        if ((userData->hasFloatData0() || userData->hasFloatData1()) &&
+            requestedNames.count(userData->getFloatKey()) > 0) {
+            std::vector<scene_rdl2::rdl2::FloatVector> floatData;
+            if (userData->hasFloatData0() && useFirstFrame) {
+                floatData.push_back(userData->getFloatValues0());
+            }
+            if (userData->hasFloatData1() && useSecondFrame) {
+                floatData.push_back(userData->getFloatValues1());
+            }
+            if (!floatData.empty()) {
+                addCurvesPrimitiveAttribute(primitiveAttributeTable, userData->getFloatKey(), partList, partName, std::move(floatData));
+            }
         }
 
         if (userData->hasStringData()) {
             const scene_rdl2::rdl2::String& key = userData->getStringKey();
-            scene_rdl2::rdl2::StringVector data = userData->getStringValues();
-            addCurvesPrimitiveAttribute(primitiveAttributeTable, key, partList, partName, std::move(data));
+            if (requestedNames.count(key) > 0) {
+                scene_rdl2::rdl2::StringVector data = userData->getStringValues();
+                addCurvesPrimitiveAttribute(primitiveAttributeTable, key, partList, partName, std::move(data));
+            }
         }
 
-        std::vector<scene_rdl2::rdl2::RgbVector> colorData;
-        if (userData->hasColorData0() && useFirstFrame) {
-            const scene_rdl2::rdl2::RgbVector& data0 = userData->getColorValues0();
-            colorData.push_back(data0);
-        }
-        if (userData->hasColorData1()) {
-            const scene_rdl2::rdl2::RgbVector& data1 = userData->getColorValues1();
-            colorData.push_back(data1);
-        }
-        if (!colorData.empty()) {
-            const scene_rdl2::rdl2::String& key = userData->getColorKey();
-            addCurvesPrimitiveAttribute(primitiveAttributeTable, key, partList, partName, std::move(colorData));
-        }
-
-        std::vector<scene_rdl2::rdl2::Vec2fVector> vec2fData;
-        if (userData->hasVec2fData0() && useFirstFrame) {
-            const scene_rdl2::rdl2::Vec2fVector& data0 = userData->getVec2fValues();
-            vec2fData.push_back(data0);
-        }
-        if (userData->hasVec2fData1() && useSecondFrame) {
-            const scene_rdl2::rdl2::Vec2fVector& data1 = userData->getVec2fValues1();
-            vec2fData.push_back(data1);
-        }
-        if (!vec2fData.empty()) {
-            const scene_rdl2::rdl2::String& key = userData->getVec2fKey();
-            addCurvesPrimitiveAttribute(primitiveAttributeTable, key, partList, partName, std::move(vec2fData));
+        if ((userData->hasColorData0() || userData->hasColorData1()) &&
+            requestedNames.count(userData->getColorKey()) > 0) {
+            std::vector<scene_rdl2::rdl2::RgbVector> colorData;
+            if (userData->hasColorData0() && useFirstFrame) {
+                colorData.push_back(userData->getColorValues0());
+            }
+            if (userData->hasColorData1() && useSecondFrame) {
+                colorData.push_back(userData->getColorValues1());
+            }
+            if (!colorData.empty()) {
+                addCurvesPrimitiveAttribute(primitiveAttributeTable, userData->getColorKey(), partList, partName, std::move(colorData));
+            }
         }
 
-        std::vector<scene_rdl2::rdl2::Vec3fVector> vec3fData;
-        if (userData->hasVec3fData0() && useFirstFrame) {
-            const scene_rdl2::rdl2::Vec3fVector& data0 = userData->getVec3fValues();
-            vec3fData.push_back(data0);
-        }
-        if (userData->hasVec3fData1() && useSecondFrame) {
-            const scene_rdl2::rdl2::Vec3fVector& data1 = userData->getVec3fValues1();
-            vec3fData.push_back(data1);
-        }
-        if (!vec3fData.empty()) {
-            const scene_rdl2::rdl2::String& key = userData->getVec3fKey();
-            addCurvesPrimitiveAttribute(primitiveAttributeTable, key, partList, partName, std::move(vec3fData));
+        if ((userData->hasVec2fData0() || userData->hasVec2fData1()) &&
+            requestedNames.count(userData->getVec2fKey()) > 0) {
+            std::vector<scene_rdl2::rdl2::Vec2fVector> vec2fData;
+            if (userData->hasVec2fData0() && useFirstFrame) {
+                vec2fData.push_back(userData->getVec2fValues());
+            }
+            if (userData->hasVec2fData1() && useSecondFrame) {
+                vec2fData.push_back(userData->getVec2fValues1());
+            }
+            if (!vec2fData.empty()) {
+                addCurvesPrimitiveAttribute(primitiveAttributeTable, userData->getVec2fKey(), partList, partName, std::move(vec2fData));
+            }
         }
 
-        std::vector<scene_rdl2::rdl2::Mat4fVector> mat4fData;
-        if (userData->hasMat4fData0() && useFirstFrame) {
-            const scene_rdl2::rdl2::Mat4fVector& data0 = userData->getMat4fValues();
-            mat4fData.push_back(data0);
+        if ((userData->hasVec3fData0() || userData->hasVec3fData1()) &&
+            requestedNames.count(userData->getVec3fKey()) > 0) {
+            std::vector<scene_rdl2::rdl2::Vec3fVector> vec3fData;
+            if (userData->hasVec3fData0() && useFirstFrame) {
+                vec3fData.push_back(userData->getVec3fValues());
+            }
+            if (userData->hasVec3fData1() && useSecondFrame) {
+                vec3fData.push_back(userData->getVec3fValues1());
+            }
+            if (!vec3fData.empty()) {
+                addCurvesPrimitiveAttribute(primitiveAttributeTable, userData->getVec3fKey(), partList, partName, std::move(vec3fData));
+            }
         }
-        if (userData->hasMat4fData1() && useSecondFrame) {
-            const scene_rdl2::rdl2::Mat4fVector& data1 = userData->getMat4fValues1();
-            mat4fData.push_back(data1);
-        }
-        if (!mat4fData.empty()) {
-            const scene_rdl2::rdl2::String& key = userData->getMat4fKey();
-            addCurvesPrimitiveAttribute(primitiveAttributeTable, key, partList, partName, std::move(mat4fData));
+
+        if ((userData->hasMat4fData0() || userData->hasMat4fData1()) &&
+            requestedNames.count(userData->getMat4fKey()) > 0) {
+            std::vector<scene_rdl2::rdl2::Mat4fVector> mat4fData;
+            if (userData->hasMat4fData0() && useFirstFrame) {
+                mat4fData.push_back(userData->getMat4fValues());
+            }
+            if (userData->hasMat4fData1() && useSecondFrame) {
+                mat4fData.push_back(userData->getMat4fValues1());
+            }
+            if (!mat4fData.empty()) {
+                addCurvesPrimitiveAttribute(primitiveAttributeTable, userData->getMat4fKey(), partList, partName, std::move(mat4fData));
+            }
         }
     }
 }

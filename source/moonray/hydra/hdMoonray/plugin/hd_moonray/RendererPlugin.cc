@@ -34,7 +34,14 @@ public:
     void DeleteRenderDelegate(pxr::HdRenderDelegate *renderDelegate) override {
         delete renderDelegate;
     }
-#if PXR_VERSION >= 2302
+#if PXR_VERSION >= 2603
+    // USD 26.x: IsSupported takes HdRendererCreateArgs and is pure virtual.
+    // MoonRay renders on the CPU, so it is supported regardless of GPU state.
+    bool IsSupported(pxr::HdRendererCreateArgs const& /*rendererCreateArgs*/,
+                     std::string* /*reasonWhyNot*/ = nullptr) const override {
+        return true;
+    }
+#elif PXR_VERSION >= 2302
     bool IsSupported(bool gpuEnabled = true) const override {
         return true;
     }

@@ -234,6 +234,20 @@ public:
     SceneObject* createSceneObject(const std::string& className, const std::string& objectName);
 
     /**
+     * Delete a SceneObject from the SceneContext by its name.
+     *
+     * The SceneObject will be removed from the SceneContext and its memory
+     * will be freed. Any pointers to the deleted object become invalid.
+     * The SceneVariables singleton object cannot be deleted.
+     *
+     * Callers must ensure no other objects still reference the deleted object
+     * (e.g. remove it from GeometrySets, LightSets, and Layers first).
+     *
+     * @param   objectName  The name of the SceneObject to delete.
+     */
+    void deleteSceneObject(const std::string& objectName);
+
+    /**
      * Calls update() on any of the following that are modified: SceneVariables,
      * the active Camera, the supplied Layer, and assigned SceneObjects and
      * SceneObject attributes in the Layer. Should only be called after
@@ -311,6 +325,18 @@ public:
     ShadeFunc getFatalShadeFunc() const {return mFatalShadeFunc;}
     void setFatalSampleFunc(SampleFunc f) {mFatalSampleFunc = f;}
     SampleFunc getFatalSampleFunc() const {return mFatalSampleFunc;}
+    void setFatalSampleFuncBool(SampleFuncBool f) {mFatalSampleFuncBool = f;}
+    SampleFuncBool getFatalSampleFuncBool() const {return mFatalSampleFuncBool;}
+    void setFatalSampleFuncInt(SampleFuncInt f) {mFatalSampleFuncInt = f;}
+    SampleFuncInt getFatalSampleFuncInt() const {return mFatalSampleFuncInt;}
+    void setFatalSampleFuncVec4f(SampleFuncVec4f f) {mFatalSampleFuncVec4f = f;}
+    SampleFuncVec4f getFatalSampleFuncVec4f() const {return mFatalSampleFuncVec4f;}
+    void setFatalSampleFuncRgba(SampleFuncRgba f) {mFatalSampleFuncRgba = f;}
+    SampleFuncRgba getFatalSampleFuncRgba() const {return mFatalSampleFuncRgba;}
+    void setFatalSampleFuncMat3f(SampleFuncMat3f f) {mFatalSampleFuncMat3f = f;}
+    SampleFuncMat3f getFatalSampleFuncMat3f() const {return mFatalSampleFuncMat3f;}
+    void setFatalSampleFuncMat4f(SampleFuncMat4f f) {mFatalSampleFuncMat4f = f;}
+    SampleFuncMat4f getFatalSampleFuncMat4f() const {return mFatalSampleFuncMat4f;}
     void setFatalSampleNormalFunc(SampleNormalFunc f) {mFatalSampleNormalFunc = f;}
     SampleNormalFunc getFatalSampleNormalFunc() const {return mFatalSampleNormalFunc;}
     void setFatalPresenceFunc(PresenceFunc f) {mFatalPresenceFunc = f;}
@@ -397,6 +423,12 @@ private:
     // Functions to be used for shading and sampling in case of fatal errors at update
     ShadeFunc mFatalShadeFunc;
     SampleFunc mFatalSampleFunc;
+    SampleFuncBool mFatalSampleFuncBool;
+    SampleFuncInt mFatalSampleFuncInt;
+    SampleFuncVec4f mFatalSampleFuncVec4f;
+    SampleFuncRgba mFatalSampleFuncRgba;
+    SampleFuncMat3f mFatalSampleFuncMat3f;
+    SampleFuncMat4f mFatalSampleFuncMat4f;
     SampleNormalFunc mFatalSampleNormalFunc;
     PresenceFunc mFatalPresenceFunc;
     IorFunc mFatalIorFunc;

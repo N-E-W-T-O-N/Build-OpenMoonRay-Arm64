@@ -1,5 +1,7 @@
 # MoonRay Project Governance
 
+MoonRay is a project of the [Academy Software Foundation](https://www.aswf.io/) and relies on the ASWF governance policies, supported by the Linux Foundation.
+
 There are three primary project roles: Contributors submit code to the project; Committers approve code to be included into the project; and the Technical Steering Committee (TSC) provides overall high-level project guidance.
 
 * [Contributors](#Contributors)
@@ -49,7 +51,7 @@ The TSC may periodically review the Committer list to identify inactive Committe
 
 ## Technical Steering Committee
 
-A subset of the Committers forms the Technical Steering Committee (TSC), which has final authority over the project. As defined in the project charter, TSC responsibilities include, but are not limited to:
+A subset of the Committers forms the Technical Steering Committee (TSC), which has final authority over the project. As defined in the project [charter](https://lfx-cdn-prod.s3.us-east-1.amazonaws.com/project-artifacts/moonray/moonray_Charter.pdf?v=1773345969627), TSC responsibilities include, but are not limited to:
 
 * Coordinating technical direction of the project.
 * Project governance and contribution policy.
@@ -59,7 +61,7 @@ A subset of the Committers forms the Technical Steering Committee (TSC), which h
 * Discussions, seeking consensus, and where necessary, voting on technical matters relating to the MoonRay project.
 * Coordinating marketing, events, and communications regarding MoonRay.
 
-The TSC elects a Chair person, who acts as the project manager, organizing meetings and providing oversight to project administration. The Chair is elected by the TSC. 
+The TSC elects a Chair person, who acts as the project manager, organizing meetings and providing oversight to project administration. The chair is also the *TAC Representative* the MoonRay project in meetings of the Technical Advisory Council of the ASWF. The Chair is elected by the TSC.
 
 
 ### TSC Members
@@ -67,12 +69,12 @@ The TSC elects a Chair person, who acts as the project manager, organizing meeti
 Current voting members of the TSC are:
 
 * **Chair**: Jon Lanz - DreamWorks Animation
-* Jeff Mahovsky - DreamWorks Animation
 * Matthew Low - DreamWorks Animation
 * Paul Ramsey - DreamWorks Animation
 * Randy Packer - DreamWorks Animation
 * Rob Wilson - DreamWorks Animation
 * Toshi Kato - DreamWorks Animation
+* Michel Castejon
 
 ### TSC Nomination and Succession
 
@@ -110,6 +112,9 @@ there is a reasonable need for privacy. The TSC meets regularly in a video
 conference call, at a cadence deemed appropriate by the TSC. The TSC Chair
 moderates the meeting, or appoints another TSC member to moderate in his or
 her absence.
+
+Scheduling and connection details may be found in the public
+[ASWF Meeting Calendar](https://www.aswf.io/meeting-calendar/).
 
 Items are added to the TSC agenda which are considered contentious or are
 modifications of governance, contribution policy, TSC membership, or release

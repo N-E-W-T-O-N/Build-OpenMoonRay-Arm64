@@ -167,7 +167,12 @@
     #error Unknown vector width
 #endif
 
-#if __ARM_NEON__
+// 128-byte cache lines are an Apple M-series trait; ARM Cortex-A (and x86)
+// use 64. Keying 128 off __ARM_NEON__ broke Linux aarch64 (RayDifferentialv
+// static assert: CACHE_ALIGN-rounded size vs sizeof*VLEN). Also use #undef to
+// avoid the redefinition warning against Platform.h's baseline 64u.
+#undef CACHE_LINE_SIZE
+#if defined(__ARM_NEON__) && defined(__APPLE__)
 #define CACHE_LINE_SIZE        128u
 #else
 #define CACHE_LINE_SIZE        64u

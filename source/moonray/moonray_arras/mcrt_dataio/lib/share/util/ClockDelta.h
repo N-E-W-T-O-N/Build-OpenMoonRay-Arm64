@@ -7,6 +7,7 @@
 
 #include <mcrt_dataio/share/sock/SockServerInet.h>
 
+#include <cstdint> // uint64_t (GCC 15 no longer includes transitively)
 #include <string>
 
 namespace mcrt_dataio {

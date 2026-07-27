@@ -1,7 +1,9 @@
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #include "ImageDisplay.h"
+
+#include "DrawUtil.h"
 #include "../Viewport.h"
 
 #include <moonray/rendering/rndr/PathVisualizerManager.h>
@@ -65,7 +67,7 @@ ImageDisplay::draw(const Viewport* viewport, const int availWidth, const int ava
 
         /// Draw path visualizer lines on top of the image
         moonray::rndr::PathVisualizerManager* manager = viewport->getPathVisualizerManager();
-        drawPathVisualizerLines(manager);
+        drawPathVisualizerLines(manager, viewport->getPVShowOnlyEndpoints());
     }
     ImGui::End();
     ImGui::PopStyleVar(2); 
@@ -75,7 +77,8 @@ ImageDisplay::draw(const Viewport* viewport, const int availWidth, const int ava
 
 void
 ImageDisplay::drawLine(const int x1, const int y1, const int x2, const int y2, const scene_rdl2::math::Color& color, 
-                       const float a, const float w, const bool drawEndPoint)
+                       const float a, const float w, const bool drawEndPoint, const bool selected, 
+                       const bool isSample, const bool showEndpointsOnly)
 {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
 
@@ -84,7 +87,17 @@ ImageDisplay::drawLine(const int x1, const int y1, const int x2, const int y2, c
     const ImVec2 end = imageToViewportCoords(x2, y2);
 
     ImU32 lineColor = IM_COL32(color.r * 255, color.g * 255, color.b * 255, a * 255);
-    drawList->AddLine(start, end, lineColor, w);
+    if (!selected) {
+        lineColor = IM_COL32(color.r * 255, color.g * 255, color.b * 255, a * 0.3 * 255);
+    }
+
+    if (!showEndpointsOnly) {
+        if (isSample) {
+            addDashedLine(start, end, w, lineColor);
+        } else {
+            drawList->AddLine(start, end, lineColor, w);
+        }
+    }
 
     if (drawEndPoint) {
         drawList->AddCircleFilled(end, w + 3, lineColor, /*circle segments*/ 16);
@@ -92,7 +105,7 @@ ImageDisplay::drawLine(const int x1, const int y1, const int x2, const int y2, c
 }
 
 void 
-ImageDisplay::drawPathVisualizerLines(moonray::rndr::PathVisualizerManager* manager)
+ImageDisplay::drawPathVisualizerLines(moonray::rndr::PathVisualizerManager* manager, const bool showEndpointsOnly)
 {
     // If the manager doesn't exist or is turned off, nothing to draw
     if (!manager || !manager->isOn()) { return; }
@@ -102,18 +115,15 @@ ImageDisplay::drawPathVisualizerLines(moonray::rndr::PathVisualizerManager* mana
     
     using PosType = scene_rdl2::grid_util::VectorPacketLineStatus::PosType;
 
-    auto lineDrawingCallback = [manager, this, size](const scene_rdl2::math::Vec2i& s,
-                                                     const scene_rdl2::math::Vec2i& e,
-                                                     const uint8_t& flags,
-                                                     const float a,
-                                                     const float w,
-                                                     const bool drawEndPoint,
-                                                     const unsigned nodeId,
-                                                     const PosType startPosType,
-                                                     const PosType endPosType) {
-        // Manager could have been deleted since we set up the callback
-        if (!manager) { return; }
-
+    auto lineDrawingCallback = [&](const scene_rdl2::math::Vec2i& s,
+                                   const scene_rdl2::math::Vec2i& e,
+                                   const uint8_t& flags,
+                                   const float a,
+                                   const float w,
+                                   const bool drawEndPoint,
+                                   const unsigned nodeId,
+                                   const PosType startPosType,
+                                   const PosType endPosType) {
         // Check if the line should be visible based on user settings
         if (!manager->showRay(flags)) { return; }
 
@@ -122,8 +132,11 @@ ImageDisplay::drawPathVisualizerLines(moonray::rndr::PathVisualizerManager* mana
         // TODO: In the future, we might consider replacing the opacity field in the 
         // Line struct to a field like "mHidden", and allow the frontend to draw
         // hidden line segments however it wants
-        float opacity = a < 1.f ? manager->getHiddenLineOpacity() : 1.f;
-        drawLine(s[0], s[1], e[0], e[1], manager->getColorByFlags(flags), opacity, w, drawEndPoint);
+        const float opacity = a < 1.f ? manager->getHiddenLineOpacity() : 1.f;
+        const bool selected = manager->isSelectedNode(nodeId);
+        const bool isSample = manager->isSample(flags);
+        drawLine(s[0], s[1], e[0], e[1], manager->getColorByFlags(flags), opacity, w, drawEndPoint, 
+                 selected, isSample, showEndpointsOnly);
     };
     manager->crawlAllLines(lineDrawingCallback);
 }

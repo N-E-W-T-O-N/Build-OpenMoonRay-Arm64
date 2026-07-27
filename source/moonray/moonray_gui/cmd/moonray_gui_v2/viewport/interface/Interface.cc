@@ -1,11 +1,13 @@
 
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #include "Interface.h"
 
+#include "AxisDisplay.h"
 #include "ExposureWindow.h"
 #include "GammaWindow.h"
+#include "HelpWindow.h"
 #include "KeyBindingsWindow.h"
 #include "ImageDisplay.h"
 #include "PathVisualizerWindow.h"
@@ -26,8 +28,10 @@ namespace moonray_gui_v2 {
 
 Interface::Interface(Viewport* viewport)
 : mViewport(viewport)
+, mAxisDisplay(std::make_unique<AxisDisplay>())
 , mExposureWindow(std::make_unique<ExposureWindow>())
 , mGammaWindow(std::make_unique<GammaWindow>())
+, mHelpWindow(std::make_unique<HelpWindow>())
 , mKeyBindingsWindow(std::make_unique<KeyBindingsWindow>())
 , mImageDisplay(std::make_unique<ImageDisplay>())
 , mPathVisualizerWindow(std::make_unique<PathVisualizerWindow>())
@@ -82,8 +86,10 @@ Interface::Interface(Viewport* viewport)
     }
 
     // Add UI components here
+    mComponents.push_back(mAxisDisplay.get());
     mComponents.push_back(mExposureWindow.get());
     mComponents.push_back(mGammaWindow.get());
+    mComponents.push_back(mHelpWindow.get());
     mComponents.push_back(mKeyBindingsWindow.get());
     mComponents.push_back(mPathVisualizerWindow.get());
     mComponents.push_back(mPixelInspector.get());
@@ -95,6 +101,9 @@ Interface::Interface(Viewport* viewport)
     mBottomDock.addComponent(mStatusBar.get());
     mBottomDock.addComponent(mSnapshotWindow.get());
     mRightDock.addComponent(mPathVisualizerWindow.get());
+
+    // Set up callback for help button in StatusBar
+    mStatusBar->setHelpButtonCallback([this]() { this->toggleHelpWindow(); });
 }
 
 Interface::~Interface()
@@ -112,16 +121,20 @@ Interface::handleKeyPressEvent(const Action action)
     if (mKeyBindingsWindow->isCapturing()) { return true; }
 
     switch(action) {
-    case ACTION_WINDOW_TOGGLE_EXPOSURE:         toggleExposureWindow();         return true;
-    case ACTION_WINDOW_TOGGLE_GAMMA:            toggleGammaWindow();            return true;
-    case ACTION_WINDOW_TOGGLE_KEY_BINDINGS:     toggleKeyBindings();            return true;
-    case ACTION_WINDOW_TOGGLE_PATH_VISUALIZER:  togglePathVisualizerWindow();   return true;
-    case ACTION_WINDOW_TOGGLE_PIXEL_INSPECTOR:  togglePixelInspector();         return true;
-    case ACTION_WINDOW_TOGGLE_SCENE_INSPECTOR:  toggleSceneInspector();         return true;
-    case ACTION_WINDOW_TOGGLE_SNAPSHOT:         toggleSnapshotWindow();         return true;
-    case ACTION_WINDOW_TOGGLE_STATUS:           toggleStatusBar();              return true;
-    case ACTION_SNAPSHOT_PREV:                  mViewport->showPrevSnapshot();  return true;
-    case ACTION_SNAPSHOT_NEXT:                  mViewport->showNextSnapshot();  return true;
+    case ACTION_WINDOW_TOGGLE_EXPOSURE:         toggleExposureWindow();              return true;
+    case ACTION_WINDOW_TOGGLE_GAMMA:            toggleGammaWindow();                 return true;
+    case ACTION_WINDOW_TOGGLE_KEY_BINDINGS:     toggleKeyBindings();                 return true;
+    case ACTION_WINDOW_TOGGLE_PATH_VISUALIZER:  togglePathVisualizerWindow();        return true;
+    case ACTION_WINDOW_TOGGLE_PIXEL_INSPECTOR:  togglePixelInspector();              return true;
+    case ACTION_WINDOW_TOGGLE_SCENE_INSPECTOR:  toggleSceneInspector();              return true;
+    case ACTION_WINDOW_TOGGLE_SNAPSHOT:         toggleSnapshotWindow();              return true;
+    case ACTION_WINDOW_TOGGLE_STATUS:           toggleStatusBar();                   return true;
+    case ACTION_SNAPSHOT_PREV:                  mViewport->showPrevSnapshot();       return true;
+    case ACTION_SNAPSHOT_NEXT:                  mViewport->showNextSnapshot();       return true;
+    case ACTION_PATH_VISUALIZER_ON_OFF:         mViewport->pathVisualizerToggleOn(); return true;
+    case ACTION_PATH_VISUALIZER_NEXT_NODE:      mViewport->nextPathVisualizerNode(); return true;
+    case ACTION_PATH_VISUALIZER_PREV_NODE:      mViewport->prevPathVisualizerNode(); return true;
+    case ACTION_WINDOW_TOGGLE_AXIS_DISPLAY:     toggleAxisDisplay();                 return true;
     default: break;
     }
     return false;
@@ -219,8 +232,10 @@ Interface::resizeViewport()
 
 // ------------------- Toggle open/closed windows ----------------------- ///
 
+void Interface::toggleAxisDisplay() { mAxisDisplay->toggle(); }
 void Interface::toggleExposureWindow() { mExposureWindow->toggle(); }
 void Interface::toggleGammaWindow() { mGammaWindow->toggle(); }
+void Interface::toggleHelpWindow() { mHelpWindow->toggle(); }
 void Interface::toggleKeyBindings() { mKeyBindingsWindow->toggle(); }
 void Interface::togglePathVisualizerWindow() { mPathVisualizerWindow->toggle(); }
 void Interface::togglePixelInspector() { mPixelInspector->toggle(); }

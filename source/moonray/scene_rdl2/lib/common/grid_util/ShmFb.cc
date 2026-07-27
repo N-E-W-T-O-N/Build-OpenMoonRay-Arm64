@@ -1,4 +1,4 @@
-// Copyright 2024-2025 DreamWorks Animation LLC
+// Copyright 2024-2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 #include "ShmFb.h"
 
@@ -10,14 +10,17 @@
 #ifdef __APPLE__
 #include <arm_neon.h>
 #include <sys/sysctl.h>
-#else // else __APPLE__
-#ifdef __INTEL_COMPILER 
+#elif defined(__aarch64__) // Linux arm64
+#include <arm_neon.h>
+#include <fstream>
+#else // Linux/Windows x86
+#ifdef __INTEL_COMPILER
 // We don't need any include for half float instructions
 #else // else __INTEL_COMPILER
 #include <x86intrin.h>          // _mm_cvtps_ph, _cvtph_ps : for GCC build
 #endif // end !__INTEL_COMPILER
 #include <fstream>
-#endif 
+#endif
 
 namespace scene_rdl2 {
 namespace grid_util {
@@ -425,10 +428,9 @@ ShmFb::verifyPixCol4(void* const pixAddr, const float col4[4]) const
 
 //------------------------------------------------------------------------------------------
 
-ShmFbManager::ShmFbManager(const int shmId)
+ShmFbManager::ShmFbManager(const int shmId, const bool readOnlyAccess)
 {
-    accessSetupShm(shmId, ShmFb::calcMinDataSize());
-    // std::cerr << ShmDataManager::show() << '\n'; // for debug
+    accessSetupShm(shmId, ShmFb::calcMinDataSize(), readOnlyAccess);
 
     //------------------------------
 
@@ -486,7 +488,8 @@ ShmFbManager::setupFb()
 {
     // only can read/write by myself 
     // read-only for other owner's processes 
-    constructNewShm(ShmFb::calcDataSize(mWidth, mHeight, mChanTotal, mChanMode), 0644); // 0644 is octal
+    constructNewShm(ShmFb::calcDataSize(mWidth, mHeight, mChanTotal, mChanMode),
+                    ShmDataManager::SHMFB_PERMISSION);
 
     try {
         mFb = std::make_shared<ShmFb>(mWidth, mHeight, mChanTotal, mChanMode, mTop2BottomFlag,
@@ -539,10 +542,9 @@ ShmFbCtrl::verifyMemBoundary() const
 
 //------------------------------------------------------------------------------------------
 
-ShmFbCtrlManager::ShmFbCtrlManager(const int shmId)
+ShmFbCtrlManager::ShmFbCtrlManager(const int shmId, const bool readOnlyAccess)
 {
-    accessSetupShm(shmId, ShmFbCtrl::calcDataSize());
-    // std::cerr << ShmDataManager::show() << '\n'; // for debug
+    accessSetupShm(shmId, ShmFbCtrl::calcDataSize(), readOnlyAccess);
 
     //------------------------------
 
@@ -589,7 +591,7 @@ ShmFbCtrlManager::setupFbCtrl()
 {
     // only can read/write by myself 
     // read-only for other owner's processes 
-    constructNewShm(ShmFbCtrl::calcDataSize(), 0644); // 0644 is octal
+    constructNewShm(ShmFbCtrl::calcDataSize(), ShmDataManager::SHMFB_PERMISSION);
 
     try {
         mFbCtrl = std::make_shared<ShmFbCtrl>(mShmAddr, mShmSize, true);

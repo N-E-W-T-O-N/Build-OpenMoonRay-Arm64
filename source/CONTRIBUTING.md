@@ -4,13 +4,18 @@ Thank you for your interest in contributing to MoonRay!  This document explains 
 
 ## Community and Discussion
 
-The [Discussions](https://github.com/DreamWorksAnimation/OpenMoonRay/discussions) panel of the main Open MoonRay GitHub repository is used for asking questions, starting discussions, making announcements, and general engagement with the MoonRay community.
+The MoonRay channel (`#moonray`) of the [Academy Software Foundation Slack](http://academysoftwarefdn.slack.com/) is useful for general questions, feature requests, and discussion of the MoonRay project as a whole.
+You can request an invitation to join the Academy Software Foundation Slack at https://www.aswf.io/get-involved/.
+
+The [Discussions](https://github.com/OpenMoonRay/OpenMoonRay/discussions) panel of the main Open MoonRay GitHub repository can also be used for general engagement with the MoonRay community.
 
 ## Bug Reports and Issue Tracking
 
-The [Issues](https://github.com/DreamWorksAnimation/OpenMoonRay/issues) panel of the main Open MoonRay GitHub repository is used to report bugs and build issues, and requesting enhancements.
+The [Issues](https://github.com/OpenMoonRay/OpenMoonRay/issues) panel of the main Open MoonRay GitHub repository is used to report bugs and build issues, and requesting enhancements.
 
 ## Legal Requirements
+
+MoonRay is a project of the Academy Software Foundation and follows the open source software best practice policies of the Linux Foundation.
 
 ### License
 
@@ -18,10 +23,54 @@ MoonRay is licensed under the [Apache 2.0 license](LICENSE). Contributions to th
 
 ### Contributor License Agreement (CLA)
 
-To contribute to MoonRay, you must sign a Contributor License Agreement (CLA).
+Developers who wish to contribute code to be considered for inclusion
+in the MoonRay project must first complete a **Contributor
+License Agreement**.
 
-* If you are an individual writing the code on your own time and you're sure you are the sole owner of any intellectual property you contribute, you can sign the [ICLA as an Individual Contributor](https://github.com/dreamworksanimation/openmoonray/blob/main/tsc/icla.md).
-* If you are writing the code as part of your job, or if your employer retains ownership to intellectual property you create, then your company's legal affairs representatives should sign a [Corporate Contributor License Agreement](https://github.com/dreamworksanimation/openmoonray/blob/main/tsc/ccla.md). If your company already has a signed CCLA on file, ask your local CLA manager to add you to your company's approved contributor list.
+To contribute to MoonRay, you must sign a CLA through the
+[EasyCLA](https://docs.linuxfoundation.org/lfx/easycla)
+system, which is integrated with GitHub as a pull request check.
+
+If a contributor opens a pull request without having a CLA on file, the
+contributor will be guided through the process to have the appropriate
+CLA signed. Look in the PR comments for the "linux-foundation-easycla"
+check that would fail, and a red "NOT COVERED" button will appear in the PR
+comments; click the link in the comment to sign the CLA. For organizations,
+you can alternatively go to [this
+link](https://organization.lfx.linuxfoundation.org/foundation/a09410000182dD2AAI/project/a092M00001If9ujQAB/cla)
+prior to submitting a pull request, which will guide you through the
+process to have a CLA signed on behalf of the organization.
+
+* If you are an individual writing the code on your own time and
+  you're **sure** you are the sole owner of any intellectual property you
+  contribute, you can sign the CLA as an **Individual Contributor**. If you
+  are unsure, please contact your employer for clarity.
+
+* If you are writing the code as part of your job, or if your employer
+  retains ownership to intellectual property you create, no matter how
+  small, then your company's legal affairs representatives should sign
+  a **Corporate Contributor License Agreement**. If your company already
+  has a signed CCLA on file, ask your local CLA manager to add you
+  (via your GitHub account name/email address) to your company's
+  "approved" list.
+
+The downloadable PDFs on the EasyCLA page are provided for reference
+only. To execute the signature, sign the form online through the
+relevant links.
+
+The MoonRay CLAs are the standard forms used by the Linux Foundation
+projects and [recommended by the ASWF
+TAC](https://github.com/AcademySoftwareFoundation/tac/blob/main/process/contributing.md#contributor-license-agreement-cla).
+Note that if you have signed a CLA for a different ASWF or LF project, that
+CLA doesn't apply here and you need to sign for this project specifically.
+
+On April 23, 2026, stewardship of the MoonRay repositories transferred from DreamWorks
+Animation to the Academy Software Foundation. Contributions made before that date were
+authored either by DreamWorks Animation employees or by third-party contributors under
+the DreamWorks Animation CLA process then in effect. Those historical contributions
+remain part of MoonRay and are distributed under the project's [Apache 2.0
+license](LICENSE). Contributions submitted on or after April 23, 2026 are subject to
+the MoonRay/ASWF EasyCLA requirements described above.
 
 ### Developer Certificate of Origin (DCO)
 
@@ -36,6 +85,12 @@ You can include this automatically when you commit a change to your local git re
 
 [Read more about MoonRay legal and licensing concerns for contributions here](https://docs.openmoonray.org/license/).
 
+The DCO `Signed-off-by` requirement applies to contributions submitted on or after
+April 23, 2026. Historical commits made before that date may not include a
+`Signed-off-by` trailer, as DCO sign-off was not part of DreamWorks Animation's
+contribution process at that time. Those historical contributions were accepted under
+the project's prior contribution process and remain in the repository.
+
 ## Repository Structure
 
 MoonRay is available as a number of repositories on GitHub. The main repository is [`openmoonray`](README.md), and it [references all the other repositories](.gitmodules) required to build MoonRay as [git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules).
@@ -46,14 +101,14 @@ git lfs install
 ```
 To clone the entire code base needed to build MoonRay, including submodules:
 ```
-git clone --recurse-submodules https://github.com/dreamworksanimation/openmoonray.git
+git clone --recurse-submodules https://github.com/OpenMoonRay/openmoonray.git
 ```
 
 [Read more about the MoonRay source structure here](https://docs.openmoonray.org/developer-reference/source-structure/).
 
 ## Development and Pull Requests
 
-Contributions to MoonRay should be submitted as GitHub Pull Requests. See the [GitHub Pull Request documentation](https://help.github.com/articles/using-pull-requests/) to learn about this process if you are unfamiliar. 
+Contributions to MoonRay should be submitted as GitHub Pull Requests. See the [GitHub Pull Request documentation](https://help.github.com/articles/using-pull-requests/) to learn about this process if you are unfamiliar.
 
 All code must be formally reviewed before being merged into the repository.
 
@@ -79,6 +134,9 @@ Please see the [MoonRay Coding Standards documentation](https://docs.openmoonray
 
 Most MoonRay modules have a companion `tests` folder within the repository, containing a set of unit tests that validate its functionality. When contributing new code to MoonRay, make sure to include new or updated unit tests as appropriate to validate the expected behavior of the new code.
 
-Additionally, MoonRay provides a [Render Acceptance Test Suite (RATS)](https://github.com/dreamworksanimation/rats) to catch visual regressions caused by changes to the codebase before those changes are deployed into a production environment. It works by comparing canonical images rendered with the previously sanctioned version of the renderer to images rendered with a development version.  
+Additionally, MoonRay provides a [Render Acceptance Test Suite (RATS)](https://github.com/OpenMoonRay/rats) to catch visual regressions caused by changes to the codebase before those changes are deployed into a production environment. It works by comparing canonical images rendered with the previously sanctioned version of the renderer to images rendered with a development version.
 
 All contributions that may impact the resulting look of rendered images must pass RATS before being accepted. Unintentional look changes must be addressed in the contributed code. Intentional look changes must be approved by the TSC, and updated canonical reference images must be provided such that the tests continue to pass.
+
+## Security Policy
+Security issues should be reported privately to the project administrators, see [Security Policy](SECURITY.md) for details. Do not report security issues through GitHub Issues or Pull Requests, as those are public channels and may allow bad actors to take advantage of the issue before it is resolved.

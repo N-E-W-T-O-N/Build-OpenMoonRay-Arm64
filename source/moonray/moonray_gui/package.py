@@ -14,7 +14,7 @@ def version():
     """
     Increment the build in the version.
     """
-    _version = '17.37'
+    _version = '18.5'
     from rezbuild import earlybind
     return earlybind.version(this, _version)
 
@@ -82,8 +82,8 @@ for i, variant in enumerate(variants):
 
 requires = [
     'mkl',
-    'moonray-17.37',
-    'mcrt_denoise-6.23',
+    'moonray-18.4',
+    'mcrt_denoise-7.2',
     'opencolorio-2',
     'ocio_configs',
     'qt',
@@ -91,7 +91,7 @@ requires = [
 ]
 
 private_build_requires = [
-    'cmake_modules-1.0',
+    'cmake_modules-1.1',
     'cppunit',
 ]
 

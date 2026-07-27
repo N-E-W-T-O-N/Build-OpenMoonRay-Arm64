@@ -3,14 +3,24 @@
 
 find_package(glfw3 REQUIRED)
 
-# If the target 'moonray_gui' already exists,
-# create a new target 'moonray_gui_v2' so that 
-# users have the option to use either version
+# This application is built with Dear ImGui, which is a popular GUI library.
+# Because we only need a few headers and source files, we can get away with
+# FetchContent's Populate() function instead of making ImGui a full CMake
+# subproject with MakeAvailable(). Note that imgui_SOURCE_DIR will be defined
+# after the Populate() call, and we can use it to reference the ImGui source
+# files and headers.
+include(FetchContent)
+FetchContent_Populate(imgui
+    QUIET
+    URL https://github.com/ocornut/imgui/archive/refs/tags/v1.92.6.tar.gz # v1.92.6
+    URL_HASH SHA256=5b17c01f69545bde732b14936d89ce0f508adb83e8b56fa82448371845172bc3
+)
+
+# If the target 'moonray_gui' already exists, create a new target 'moonray_gui_v2' so that
+# users have the option to use either version.
 #
-# If the target 'moonray_gui' does NOT exist,
-# it means we are using QT6 or higher, and refplat-vfx2025,
-# which only supports moonray_gui_v2. So set 'moonray_gui'
-# as the target for the moonray_gui_v2 executable.
+# If the target 'moonray_gui' does NOT exist, it probably means we are using QT6 (refplat-vfx2025+),
+# so we can just use 'moonray_gui' as the target for the new app.
 if(TARGET moonray_gui)
     set(target moonray_gui_v2)
 else()
@@ -19,19 +29,9 @@ endif()
 
 add_executable(${target})
 
-# -----------------------------------------
-
 target_sources(${target}
     PRIVATE
         moonray_gui_v2.cc
-        ../../ext/imgui/imgui.cpp
-        ../../ext/imgui/backends/imgui_impl_glfw.cpp
-        ../../ext/imgui/backends/imgui_impl_opengl3.cpp
-        ../../ext/imgui/imgui_draw.cpp
-        ../../ext/imgui/imgui_tables.cpp
-        ../../ext/imgui/imgui_widgets.cpp
-        ../../ext/imgui/imgui_demo.cpp
-       
         camera/FreeCam.cc
         camera/OrbitCam.cc
         ColorManager.cc
@@ -39,11 +39,12 @@ target_sources(${target}
         FileUtil.cc
         GuiTypes.cc
         RenderGui.cc
-
+        viewport/interface/AxisDisplay.cc
         viewport/interface/Dock.cc
         viewport/interface/DrawUtil.cc
         viewport/interface/ExposureWindow.cc
         viewport/interface/GammaWindow.cc
+        viewport/interface/HelpWindow.cc
         viewport/interface/Interface.cc
         viewport/interface/ImageDisplay.cc
         viewport/interface/KeyBindingsWindow.cc
@@ -52,22 +53,25 @@ target_sources(${target}
         viewport/interface/SceneInspector.cc
         viewport/interface/SnapshotWindow.cc
         viewport/interface/StatusBar.cc
-
         viewport/Keyboard.cc
         viewport/SnapshotManager.cc
         viewport/Viewport.cc
+
+        # ImGui source files
+        ${imgui_SOURCE_DIR}/imgui.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+        ${imgui_SOURCE_DIR}/imgui_draw.cpp
+        ${imgui_SOURCE_DIR}/imgui_tables.cpp
+        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+        ${imgui_SOURCE_DIR}/imgui_demo.cpp
 )
 
+target_include_directories(${target} PRIVATE ${imgui_SOURCE_DIR})
+
 if (NOT IsDarwinPlatform)
-    set(PlatformSpecificLibs atomic)
+    set(PlatformSpecificLibs atomic dl)
 endif()
-
-# ==============================================
-# Setup ImGui
-# ==============================================
-
-# Dear ImGui
-target_include_directories(${target} PRIVATE ${PROJECT_SOURCE_DIR}/ext/imgui)
 
 target_link_libraries(${target}
     PRIVATE

@@ -55,7 +55,10 @@ Bsdf_show(const varying Bsdf &bsdf,
         const uniform intptr_t lightSet = BsdfLobe_getLightSet(lobe);
         if (lightSet != 0) {
             CPP_printLightSetInfo((const uniform LightSet * uniform) lightSet);
+        } else {
+            print("<LightSet> : '<none>'\n");
         }
+        print("label: %\n", lobe->mLabel);
         BsdfLobe_show(lobe, 0);
         print("\n");
     }
@@ -65,6 +68,8 @@ Bsdf_show(const varying Bsdf &bsdf,
         const uniform LightSet * uniform lightSet = Bssrdf_getLightSet(bssrdf);
         if (lightSet != 0) {
             CPP_printLightSetInfo(lightSet);
+        } else {
+            print("<LightSet> : '<none>'\n");
         }
         Bssrdf_show(bssrdf, 0);
         print("\n");

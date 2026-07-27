@@ -437,7 +437,8 @@ createCurves(const scene_rdl2::rdl2::Geometry *rdlGeometry,
                               curvesName,
                               useFirstFrame,
                               useSecondFrame,
-                              primitiveAttributeTable);
+                              primitiveAttributeTable,
+                              generateContext.getRequestedAttributes());
 
     // Add explicit shading primitive attribute if it's enabled
     if (commonAttrs.explicitShading &&

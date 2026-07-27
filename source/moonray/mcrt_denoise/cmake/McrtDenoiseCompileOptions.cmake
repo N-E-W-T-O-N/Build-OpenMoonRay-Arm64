@@ -11,7 +11,7 @@ function(McrtDenoise_cxx_compile_options target)
                 -fexceptions                    # Enable exception handling.
                 -fno-omit-frame-pointer         # TODO: add a note
                 -fno-strict-aliasing            # TODO: add a note
-                -march=core-avx2                # Specify the name of the target architecture
+                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
                 -pipe                           # Use pipes rather than intermediate files.
                 -pthread                        # Define additional macros required for using the POSIX threads library.
                 -w                              # Inhibit all warning messages.

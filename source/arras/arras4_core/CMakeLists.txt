@@ -36,8 +36,15 @@ find_package(Boost REQUIRED
     chrono
     date_time
     filesystem
-    program_options
-    system)
+    program_options)
+# Boost.System is header-only since 1.69; Boost >= 1.89 removed the compiled
+# stub entirely, so it can no longer be requested as a component. Provide a
+# compat target for code that still links Boost::system.
+if(NOT TARGET Boost::system)
+    add_library(Boost::system INTERFACE IMPORTED)
+    set_target_properties(Boost::system PROPERTIES
+        INTERFACE_LINK_LIBRARIES Boost::headers)
+endif()
 
 if (IsWindowsPlatform)
     find_package(curl REQUIRED)

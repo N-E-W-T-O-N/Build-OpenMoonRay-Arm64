@@ -160,6 +160,7 @@ set(CHAIN Log4CPlus)
 ExternalProject_Add(CppUnit
     URL http://dev-www.libreoffice.org/src/cppunit-1.15.1.tar.gz
     BUILD_IN_SOURCE 1
+    PATCH_COMMAND find . -name "Makefile.in" -exec touch {} + # prevent make from thinking these files are stale
     CONFIGURE_COMMAND ./configure --prefix ${InstallRoot}
     BUILD_COMMAND make ${JOBS_ARG}
     INSTALL_COMMAND make install

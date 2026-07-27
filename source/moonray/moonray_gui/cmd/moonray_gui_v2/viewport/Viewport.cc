@@ -1,4 +1,4 @@
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #include "Viewport.h"
@@ -207,6 +207,12 @@ Viewport::exec()
         // Update the texture that imgui renders (do this before ImGui layout)
         updateFrame();
 
+        // Update the axis lines, if necessary
+        if (mUpdateAxis) {
+            mRenderContext->getCameraAxesScreenSpace(mAxisXDir, mAxisYDir, mAxisZDir);
+            mUpdateAxis = false;
+        }
+
         // Draws the imgui UI
         mInterface->draw();
 
@@ -369,7 +375,9 @@ Viewport::inspect(int x, int y) const
                         return l0.second < l1.second;
                     });
         for (unsigned int i = 0; i < rdlLights.size(); ++i) {
-            lightPickResults += "" + rdlLights[i].first->getName() + ": " + std::to_string(rdlLights[i].second) + "\n";
+            lightPickResults += rdlLights[i].first->getName() + ": " + 
+                                std::to_string(rdlLights[i].second) + ", " + 
+                                rdlLights[i].first->getSceneClass().getName() + "\n";
         }
 
         return lightPickResults;
@@ -378,20 +386,20 @@ Viewport::inspect(int x, int y) const
     case INSPECT_GEOMETRY:
         {
             const rdl2::Geometry *geometry = mRenderContext->handlePickGeometry(x, y);
-            if (geometry) { return geometry->getName() + ""; }
+            if (geometry) { return geometry->getName() + "\n" + geometry->getSceneClass().getName(); }
         }
         break;
     case INSPECT_GEOMETRY_PART:
         {
             std::string parts;
             const rdl2::Geometry* geometry = mRenderContext->handlePickGeometryPart(x, y, parts);
-            if (geometry) { return geometry->getName() + ", " + parts + ""; }
+            if (geometry) { return geometry->getName() + ", " + parts + "\n" + geometry->getSceneClass().getName(); }
         }
         break;
     case INSPECT_MATERIAL:
         {
             const rdl2::Material *material = mRenderContext->handlePickMaterial(x, y);
-            if (material) { return material->getName() + ""; }
+            if (material) { return material->getName() + "\n" + material->getSceneClass().getName(); }
         }
         break;
     }
@@ -500,6 +508,37 @@ Viewport::setPathVisualizerPixel()
     }
 }
 
+void
+Viewport::pathVisualizerToggleOn()
+{
+    moonray::rndr::PathVisualizerManager* manager = getPathVisualizerManager();
+    if (manager) {
+        if (manager->isOn()) {
+            manager->turnOff();
+        } else {
+            manager->turnOn();
+        }
+    }
+}
+
+void
+Viewport::prevPathVisualizerNode()
+{
+    moonray::rndr::PathVisualizerManager* manager = getPathVisualizerManager();
+    if (manager && manager->isOn()) {
+        manager->prevNode();
+    }
+}
+
+void
+Viewport::nextPathVisualizerNode()
+{
+    moonray::rndr::PathVisualizerManager* manager = getPathVisualizerManager();
+    if (manager && manager->isOn()) {
+        manager->nextNode();
+    }
+}
+
 /// ------------------------------- Action Handling ---------------------------------------------------------------- ///
 void
 Viewport::handlePressAction(const Action action)
@@ -540,6 +579,8 @@ Viewport::handlePressAction(const Action action)
         // Misc actions
         case ACTION_SAVE_IMAGE:                     saveEXR(mRenderContext);                                      break;
         case ACTION_CAM_TOGGLE_ACTIVE_TYPE:         toggleActiveCameraType();               mNeedsRefresh = true; break;
+        case ACTION_PATH_VISUALIZER_PREV_NODE:      getPathVisualizerManager()->prevNode(); mNeedsRefresh = true; break;
+        case ACTION_PATH_VISUALIZER_NEXT_NODE:      getPathVisualizerManager()->nextNode(); mNeedsRefresh = true; break;
         case ACTION_TILE_PROGRESS_TOGGLE:           toggleShowTileProgress();               mNeedsRefresh = true; break;
         case ACTION_PICK_PATH_VISUALIZER_PIXEL:     setPathVisualizerPixel();                                     break;
         case ACTION_RENDER_OUTPUT_PREV:             prevRenderOutput();                     mNeedsRefresh = true; break;

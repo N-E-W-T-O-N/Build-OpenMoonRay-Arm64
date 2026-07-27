@@ -13,8 +13,7 @@ function(${PROJECT_NAME}_cxx_compile_options target)
                 -fno-strict-aliasing            # TODO: add a note
                 -fno-var-tracking-assignments   # Turn off variable tracking
                 -fpermissive                    # Downgrade some diagnostics about nonconformant code from errors to warnings.
-                -march=core-avx2                # Specify the name of the target architecture
-                -mavx                           # x86 options
+                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
                 -pipe                           # Use pipes rather than intermediate files.
                 -pthread                        # Define additional macros required for using the POSIX threads library.
                 -w                              # Inhibit all warning messages.
@@ -38,7 +37,7 @@ function(${PROJECT_NAME}_cxx_compile_options target)
         target_compile_options(${target}
             # TODO: Some if not all of these should probably be PUBLIC
             PRIVATE
-                -march=core-avx2                # Specify the name of the target architecture
+                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
                 -fdelayed-template-parsing      # Shader.h has a template method that uses a moonray class which is no available to scene_rdl2 and is only used in moonray+
                 -Wno-deprecated-declarations    # disable auto_ptr deprecated warnings from log4cplus-1.
                 -Wno-unused-value               # caused by opt-debug build and MNRY_VERIFY.
@@ -55,8 +54,7 @@ function(${PROJECT_NAME}_cxx_compile_options target)
         target_compile_options(${target}
             # TODO: Some if not all of these should probably be PUBLIC
             PRIVATE
-                -march=core-avx2                # Specify the name of the target architecture
-                -mavx
+                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
                 -Qoption,cpp,--print_include_stack
                 -fmerge-debug-strings
                 -fexceptions                    # Enable exception handling.
@@ -78,8 +76,10 @@ function(${PROJECT_NAME}_ispc_compile_options target)
     )
     set_property(TARGET ${target}
                  PROPERTY TARGET_OBJECTS $<TARGET_OBJECTS:${target}>)
+    # Custom property to track the ISPC dependency target (e.g., ${target}_ispc_dep)
+    # for ensuring proper build order when ISPC compilation is required
     set_property(TARGET ${target}
-                 PROPERTY DEPENDENCY "")
+                 PROPERTY ISPC_DEP_TARGET "")
     check_language(ISPC)
     if(NOT CMAKE_ISPC_COMPILER)
         get_target_property(SOURCES ${target} SOURCES)
@@ -140,8 +140,9 @@ function(${PROJECT_NAME}_ispc_compile_options target)
                 PRIVATE ${ISPC_TARGET_OBJECTS})
         add_custom_target(${target}_ispc_dep DEPENDS ${ISPC_TARGET_OBJECTS})
         add_dependencies(${target} ${target}_ispc_dep)
+        # Store the ISPC dependency target name for later retrieval
         set_property(TARGET ${target}
-                 PROPERTY DEPENDENCY ${target}_ispc_dep)
+                 PROPERTY ISPC_DEP_TARGET ${target}_ispc_dep)
         set_property(
                 TARGET ${target}
                 PROPERTY

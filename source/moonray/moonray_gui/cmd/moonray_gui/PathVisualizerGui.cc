@@ -1,4 +1,4 @@
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #include "ColorPicker.h"
@@ -202,32 +202,63 @@ void PathVisualizerGui::setupVisibilityUI(QGridLayout* layout)
     QLabel* visibilityTitle = new QLabel("Visibility Toggles", this);
     visibilityTitle->setProperty("class", "header");
 
-    QCheckBox* specularRaysOn = new QCheckBox("Specular rays", this);
-    QCheckBox* diffuseRaysOn = new QCheckBox("Diffuse rays", this);
-    QCheckBox* bsdfSamplesOn = new QCheckBox("Bsdf samples", this);
-    QCheckBox* lightSamplesOn = new QCheckBox("Light samples", this);
+    // Indirect rays (continuing rays)
+    QLabel* indirectTitle = new QLabel("Indirect Rays (Continuing):", this);
+    QCheckBox* indirectDiffuseRaysOn = new QCheckBox("Indirect Diffuse Rays", this);
+    QCheckBox* indirectSpecularRaysOn = new QCheckBox("Indirect Specular Rays", this);
 
-    specularRaysOn->setCheckState(mPathVisualizerManager->getShowSpecularRays() ? Qt::Checked : Qt::Unchecked);
-    diffuseRaysOn->setCheckState(mPathVisualizerManager->getShowDiffuseRays() ? Qt::Checked : Qt::Unchecked);
-    bsdfSamplesOn->setCheckState(mPathVisualizerManager->getShowBsdfSamples() ? Qt::Checked : Qt::Unchecked);
+    // Direct rays (occlusion rays)
+    QLabel* directTitle = new QLabel("Direct Rays (Occlusion):", this);
+    QCheckBox* directDiffuseRaysOn = new QCheckBox("Direct Diffuse Rays", this);
+    QCheckBox* directSpecularRaysOn = new QCheckBox("Direct Specular Rays", this);
+    QCheckBox* directLightRaysOn = new QCheckBox("Direct Light Rays", this);
+
+    // Samples
+    QLabel* samplesTitle = new QLabel("Samples:", this);
+    QCheckBox* diffuseSamplesOn = new QCheckBox("Diffuse Samples", this);
+    QCheckBox* specularSamplesOn = new QCheckBox("Specular Samples", this);
+    QCheckBox* lightSamplesOn = new QCheckBox("Light Samples", this);
+
+    indirectDiffuseRaysOn->setCheckState(mPathVisualizerManager->getShowIndirectDiffuseRays() ? Qt::Checked : Qt::Unchecked);
+    indirectSpecularRaysOn->setCheckState(mPathVisualizerManager->getShowIndirectSpecularRays() ? Qt::Checked : Qt::Unchecked);
+    directDiffuseRaysOn->setCheckState(mPathVisualizerManager->getShowDirectDiffuseRays() ? Qt::Checked : Qt::Unchecked);
+    directSpecularRaysOn->setCheckState(mPathVisualizerManager->getShowDirectSpecularRays() ? Qt::Checked : Qt::Unchecked);
+    directLightRaysOn->setCheckState(mPathVisualizerManager->getShowDirectLightRays() ? Qt::Checked : Qt::Unchecked);
+    diffuseSamplesOn->setCheckState(mPathVisualizerManager->getShowDiffuseSamples() ? Qt::Checked : Qt::Unchecked);
+    specularSamplesOn->setCheckState(mPathVisualizerManager->getShowSpecularSamples() ? Qt::Checked : Qt::Unchecked);
     lightSamplesOn->setCheckState(mPathVisualizerManager->getShowLightSamples() ? Qt::Checked : Qt::Unchecked);
 
-    specularRaysOn->setCursor(Qt::PointingHandCursor);
-    diffuseRaysOn->setCursor(Qt::PointingHandCursor);
-    bsdfSamplesOn->setCursor(Qt::PointingHandCursor);
+    indirectDiffuseRaysOn->setCursor(Qt::PointingHandCursor);
+    indirectSpecularRaysOn->setCursor(Qt::PointingHandCursor);
+    directDiffuseRaysOn->setCursor(Qt::PointingHandCursor);
+    directSpecularRaysOn->setCursor(Qt::PointingHandCursor);
+    directLightRaysOn->setCursor(Qt::PointingHandCursor);
+    diffuseSamplesOn->setCursor(Qt::PointingHandCursor);
+    specularSamplesOn->setCursor(Qt::PointingHandCursor);
     lightSamplesOn->setCursor(Qt::PointingHandCursor);
 
     /// NOTE: stateChanged will be deprecated starting with Qt v6.9
-    connect(specularRaysOn,  SIGNAL(stateChanged(int)), this, SLOT(slot_processSpecularRayFlag(int)));
-    connect(diffuseRaysOn,   SIGNAL(stateChanged(int)), this, SLOT(slot_processDiffuseRayFlag(int)));
-    connect(bsdfSamplesOn,   SIGNAL(stateChanged(int)), this, SLOT(slot_processBsdfSampleFlag(int)));
-    connect(lightSamplesOn,  SIGNAL(stateChanged(int)), this, SLOT(slot_processLightSampleFlag(int)));
+    connect(indirectDiffuseRaysOn,  SIGNAL(stateChanged(int)), this, SLOT(slot_processIndirectDiffuseRayFlag(int)));
+    connect(indirectSpecularRaysOn, SIGNAL(stateChanged(int)), this, SLOT(slot_processIndirectSpecularRayFlag(int)));
+    connect(directDiffuseRaysOn,    SIGNAL(stateChanged(int)), this, SLOT(slot_processDirectDiffuseRayFlag(int)));
+    connect(directSpecularRaysOn,   SIGNAL(stateChanged(int)), this, SLOT(slot_processDirectSpecularRayFlag(int)));
+    connect(directLightRaysOn,      SIGNAL(stateChanged(int)), this, SLOT(slot_processDirectLightRayFlag(int)));
+    connect(diffuseSamplesOn,       SIGNAL(stateChanged(int)), this, SLOT(slot_processDiffuseSampleFlag(int)));
+    connect(specularSamplesOn,      SIGNAL(stateChanged(int)), this, SLOT(slot_processSpecularSampleFlag(int)));
+    connect(lightSamplesOn,         SIGNAL(stateChanged(int)), this, SLOT(slot_processLightSampleFlag(int)));
     
     layout->addWidget(visibilityTitle, mCurrentRow++, 0, 1, 3);
-    layout->addWidget(specularRaysOn,  mCurrentRow++, 0, 1, 3);
-    layout->addWidget(diffuseRaysOn,   mCurrentRow++, 0, 1, 3);
-    layout->addWidget(bsdfSamplesOn,   mCurrentRow++, 0, 1, 3);
-    layout->addWidget(lightSamplesOn,  mCurrentRow++, 0, 1, 3);
+    layout->addWidget(indirectTitle, mCurrentRow++, 0, 1, 3);
+    layout->addWidget(indirectDiffuseRaysOn,  mCurrentRow++, 0, 1, 3);
+    layout->addWidget(indirectSpecularRaysOn, mCurrentRow++, 0, 1, 3);
+    layout->addWidget(directTitle, mCurrentRow++, 0, 1, 3);
+    layout->addWidget(directDiffuseRaysOn,  mCurrentRow++, 0, 1, 3);
+    layout->addWidget(directSpecularRaysOn, mCurrentRow++, 0, 1, 3);
+    layout->addWidget(directLightRaysOn,    mCurrentRow++, 0, 1, 3);
+    layout->addWidget(samplesTitle, mCurrentRow++, 0, 1, 3);
+    layout->addWidget(diffuseSamplesOn,  mCurrentRow++, 0, 1, 3);
+    layout->addWidget(specularSamplesOn, mCurrentRow++, 0, 1, 3);
+    layout->addWidget(lightSamplesOn,    mCurrentRow++, 0, 1, 3);
 }
 
 void PathVisualizerGui::setupStyleUI(QGridLayout* layout)
@@ -256,28 +287,32 @@ void PathVisualizerGui::setupStyleUI(QGridLayout* layout)
 
     // ----------------------------- Ray Color Pickers ---------------------------------------------
 
-    const scene_rdl2::math::Color& diffuseRayColorDefault = mPathVisualizerManager->getDiffuseRayColor();
-    const scene_rdl2::math::Color& specularRayColorDefault = mPathVisualizerManager->getSpecularRayColor();
-    const scene_rdl2::math::Color& bsdfSampleColorDefault = mPathVisualizerManager->getBsdfSampleColor();
-    const scene_rdl2::math::Color& lightSampleColorDefault = mPathVisualizerManager->getLightSampleColor();
     const scene_rdl2::math::Color& cameraRayColorDefault = mPathVisualizerManager->getCameraRayColor();
+    const scene_rdl2::math::Color& indirectDiffuseRayColorDefault = mPathVisualizerManager->getIndirectDiffuseRayColor();
+    const scene_rdl2::math::Color& indirectSpecularRayColorDefault = mPathVisualizerManager->getIndirectSpecularRayColor();
+    const scene_rdl2::math::Color& directDiffuseRayColorDefault = mPathVisualizerManager->getDirectDiffuseRayColor();
+    const scene_rdl2::math::Color& directSpecularRayColorDefault = mPathVisualizerManager->getDirectSpecularRayColor();
+    const scene_rdl2::math::Color& directLightRayColorDefault = mPathVisualizerManager->getDirectLightRayColor();
 
-    mDiffuseRayColorPicker = new ColorPicker(this, "Diffuse Ray Color: ", convertToQColor(diffuseRayColorDefault));
-    mSpecularRayColorPicker = new ColorPicker(this, "Specular Ray Color: ", convertToQColor(specularRayColorDefault));
-    mBsdfSampleColorPicker = new ColorPicker(this, "Bsdf Sample Ray Color: ", convertToQColor(bsdfSampleColorDefault));
-    mLightSampleColorPicker = new ColorPicker(this, "Light Sample Ray Color: ", convertToQColor(lightSampleColorDefault));
     mCameraRayColorPicker = new ColorPicker(this, "Camera Ray Color: ", convertToQColor(cameraRayColorDefault));
+    mIndirectDiffuseRayColorPicker = new ColorPicker(this, "Indirect Diffuse Ray Color: ", convertToQColor(indirectDiffuseRayColorDefault));
+    mIndirectSpecularRayColorPicker = new ColorPicker(this, "Indirect Specular Ray Color: ", convertToQColor(indirectSpecularRayColorDefault));
+    mDirectDiffuseRayColorPicker = new ColorPicker(this, "Direct Diffuse Ray Color: ", convertToQColor(directDiffuseRayColorDefault));
+    mDirectSpecularRayColorPicker = new ColorPicker(this, "Direct Specular Ray Color: ", convertToQColor(directSpecularRayColorDefault));
+    mDirectLightRayColorPicker = new ColorPicker(this, "Direct Light Ray Color: ", convertToQColor(directLightRayColorDefault));
 
-    connect(mDiffuseRayColorPicker, SIGNAL(sig_colorChanged(const QColor&)), 
-            this, SLOT(slot_setDiffuseRayColor(const QColor&)));
-    connect(mSpecularRayColorPicker, SIGNAL(sig_colorChanged(const QColor&)), 
-            this, SLOT(slot_setSpecularRayColor(const QColor&)));
-    connect(mBsdfSampleColorPicker, SIGNAL(sig_colorChanged(const QColor&)), 
-            this, SLOT(slot_setBsdfSampleColor(const QColor&)));
-    connect(mLightSampleColorPicker, SIGNAL(sig_colorChanged(const QColor&)), 
-            this, SLOT(slot_setLightSampleColor(const QColor&)));
     connect(mCameraRayColorPicker, SIGNAL(sig_colorChanged(const QColor&)), 
             this, SLOT(slot_setCameraRayColor(const QColor&)));
+    connect(mIndirectDiffuseRayColorPicker, SIGNAL(sig_colorChanged(const QColor&)), 
+            this, SLOT(slot_setIndirectDiffuseRayColor(const QColor&)));
+    connect(mIndirectSpecularRayColorPicker, SIGNAL(sig_colorChanged(const QColor&)), 
+            this, SLOT(slot_setIndirectSpecularRayColor(const QColor&)));
+    connect(mDirectDiffuseRayColorPicker, SIGNAL(sig_colorChanged(const QColor&)), 
+            this, SLOT(slot_setDirectDiffuseRayColor(const QColor&)));
+    connect(mDirectSpecularRayColorPicker, SIGNAL(sig_colorChanged(const QColor&)), 
+            this, SLOT(slot_setDirectSpecularRayColor(const QColor&)));
+    connect(mDirectLightRayColorPicker, SIGNAL(sig_colorChanged(const QColor&)), 
+            this, SLOT(slot_setDirectLightRayColor(const QColor&)));
 
     // ---------------------------------------------------------------------------------------------
     
@@ -285,11 +320,12 @@ void PathVisualizerGui::setupStyleUI(QGridLayout* layout)
     layout->addWidget(lineWidthLabel, mCurrentRow++, 0, 1, 3);
     layout->addWidget(lineWidthSlider, mCurrentRow, 0, 1, 2);
     layout->addWidget(mLineWidthValue, mCurrentRow++, 2, 1, 1);
-    layout->addWidget(mDiffuseRayColorPicker, mCurrentRow++, 0, 1, 3);
-    layout->addWidget(mSpecularRayColorPicker, mCurrentRow++, 0, 1, 3);
-    layout->addWidget(mBsdfSampleColorPicker, mCurrentRow++, 0, 1, 3);
-    layout->addWidget(mLightSampleColorPicker, mCurrentRow++, 0, 1, 3);
     layout->addWidget(mCameraRayColorPicker, mCurrentRow++, 0, 1, 3);
+    layout->addWidget(mIndirectDiffuseRayColorPicker, mCurrentRow++, 0, 1, 3);
+    layout->addWidget(mIndirectSpecularRayColorPicker, mCurrentRow++, 0, 1, 3);
+    layout->addWidget(mDirectDiffuseRayColorPicker, mCurrentRow++, 0, 1, 3);
+    layout->addWidget(mDirectSpecularRayColorPicker, mCurrentRow++, 0, 1, 3);
+    layout->addWidget(mDirectLightRayColorPicker, mCurrentRow++, 0, 1, 3);
 }
 
 /// -------------------------------------------- SLOTS -----------------------------------------------------------------
@@ -387,23 +423,51 @@ PathVisualizerGui::slot_processMaxDepth(const int depth)
 }
 
 void
-PathVisualizerGui::slot_processDiffuseRayFlag(const int flag)
+PathVisualizerGui::slot_processIndirectDiffuseRayFlag(const int flag)
 {
-    mPathVisualizerManager->setShowDiffuseRays(static_cast<bool>(flag));
+    mPathVisualizerManager->setShowIndirectDiffuseRays(static_cast<bool>(flag));
     mPathVisualizerManager->startSimulation();
 }
 
 void
-PathVisualizerGui::slot_processSpecularRayFlag(const int flag)
+PathVisualizerGui::slot_processIndirectSpecularRayFlag(const int flag)
 {
-    mPathVisualizerManager->setShowSpecularRays(static_cast<bool>(flag));
+    mPathVisualizerManager->setShowIndirectSpecularRays(static_cast<bool>(flag));
     mPathVisualizerManager->startSimulation();
 }
 
 void
-PathVisualizerGui::slot_processBsdfSampleFlag(const int flag)
+PathVisualizerGui::slot_processDirectDiffuseRayFlag(const int flag)
 {
-    mPathVisualizerManager->setShowBsdfSamples(static_cast<bool>(flag));
+    mPathVisualizerManager->setShowDirectDiffuseRays(static_cast<bool>(flag));
+    mPathVisualizerManager->startSimulation();
+}
+
+void
+PathVisualizerGui::slot_processDirectSpecularRayFlag(const int flag)
+{
+    mPathVisualizerManager->setShowDirectSpecularRays(static_cast<bool>(flag));
+    mPathVisualizerManager->startSimulation();
+}
+
+void
+PathVisualizerGui::slot_processDirectLightRayFlag(const int flag)
+{
+    mPathVisualizerManager->setShowDirectLightRays(static_cast<bool>(flag));
+    mPathVisualizerManager->startSimulation();
+}
+
+void
+PathVisualizerGui::slot_processDiffuseSampleFlag(const int flag)
+{
+    mPathVisualizerManager->setShowDiffuseSamples(static_cast<bool>(flag));
+    mPathVisualizerManager->startSimulation();
+}
+
+void
+PathVisualizerGui::slot_processSpecularSampleFlag(const int flag)
+{
+    mPathVisualizerManager->setShowSpecularSamples(static_cast<bool>(flag));
     mPathVisualizerManager->startSimulation();
 }
 
@@ -423,37 +487,44 @@ PathVisualizerGui::slot_setLineWidth(const int value)
 }
 
 void
-PathVisualizerGui::slot_setDiffuseRayColor(const QColor& color)
-{
-    mPathVisualizerManager->setDiffuseRayColor(convertFromQColor(color)); 
-    emit sig_styleParamChanged();
-}
-
-void
-PathVisualizerGui::slot_setSpecularRayColor(const QColor& color)
-{
-    mPathVisualizerManager->setSpecularRayColor(convertFromQColor(color)); 
-    emit sig_styleParamChanged();
-}
-
-void
-PathVisualizerGui::slot_setBsdfSampleColor(const QColor& color)
-{
-    mPathVisualizerManager->setBsdfSampleColor(convertFromQColor(color)); 
-    emit sig_styleParamChanged();
-}
-
-void
-PathVisualizerGui::slot_setLightSampleColor(const QColor& color)
-{
-    mPathVisualizerManager->setLightSampleColor(convertFromQColor(color)); 
-    emit sig_styleParamChanged();
-}
-
-void
 PathVisualizerGui::slot_setCameraRayColor(const QColor& color)
 {
     mPathVisualizerManager->setCameraRayColor(convertFromQColor(color)); 
+    emit sig_styleParamChanged();
+}
+
+void
+PathVisualizerGui::slot_setIndirectDiffuseRayColor(const QColor& color)
+{
+    mPathVisualizerManager->setIndirectDiffuseRayColor(convertFromQColor(color)); 
+    emit sig_styleParamChanged();
+}
+
+void
+PathVisualizerGui::slot_setIndirectSpecularRayColor(const QColor& color)
+{
+    mPathVisualizerManager->setIndirectSpecularRayColor(convertFromQColor(color)); 
+    emit sig_styleParamChanged();
+}
+
+void
+PathVisualizerGui::slot_setDirectDiffuseRayColor(const QColor& color)
+{
+    mPathVisualizerManager->setDirectDiffuseRayColor(convertFromQColor(color)); 
+    emit sig_styleParamChanged();
+}
+
+void
+PathVisualizerGui::slot_setDirectSpecularRayColor(const QColor& color)
+{
+    mPathVisualizerManager->setDirectSpecularRayColor(convertFromQColor(color)); 
+    emit sig_styleParamChanged();
+}
+
+void
+PathVisualizerGui::slot_setDirectLightRayColor(const QColor& color)
+{
+    mPathVisualizerManager->setDirectLightRayColor(convertFromQColor(color)); 
     emit sig_styleParamChanged();
 }
 

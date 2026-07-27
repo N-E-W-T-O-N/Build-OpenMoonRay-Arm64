@@ -1,9 +1,5 @@
-# Copyright 2025 DreamWorks Animation LLC
+# Copyright 2026 DreamWorks Animation LLC
 # SPDX-License-Identifier: Apache-2.0
 
-add_rats_test(
-    INPUTS scene.rdla
-    CANONICALS
-        scene.exr
-)
-
+add_subdirectory(general)
+add_subdirectory(per_lobe)

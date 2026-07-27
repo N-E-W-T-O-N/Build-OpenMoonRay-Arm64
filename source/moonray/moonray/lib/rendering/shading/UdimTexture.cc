@@ -19,8 +19,36 @@
 // support due to sse2neon.h being included elsewhere
 #define __IMMINTRIN_H
 #define __NMMINTRIN_H
+// GCC/aarch64: also undef the Platform.hh ISA-masquerade macros so OIIO's
+// headers (incl. vendored farmhash) take generic paths instead of x86 ones.
+#undef __SSE__
+#undef __SSE2__
+#undef __SSE3__
+#undef __SSSE3__
+#undef __SSE4_1__
+#undef __SSE4_2__
+#undef __AVX__
+#undef __AVX2__
 #endif
 #include <OpenImageIO/texture.h>
+// Restore Platform.hh's aarch64 ISA masquerade (undef'd above only so OIIO
+// headers take generic paths). Later headers dispatch on these (geom/Types.h).
+#if defined(__aarch64__)
+  #ifndef MOONRAY_ISA_NEON2X
+    #ifndef __SSE3__
+    #define __SSE3__
+    #endif
+    #ifndef __SSSE3__
+    #define __SSSE3__
+    #endif
+    #ifndef __SSE4_1__
+    #define __SSE4_1__
+    #endif
+    #ifndef __SSE4_2__
+    #define __SSE4_2__
+    #endif
+  #endif
+#endif
 
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_for.h>

@@ -26,7 +26,7 @@ public:
     RenderGui(Viewport* viewport, DenoiserManager* denoiserManager);
     ~RenderGui() {};
 
-    void setContext(moonray::rndr::RenderContext *ctx) { mRenderContext = ctx; }
+    void setContext(moonray::rndr::RenderContext *ctx);
 
     /// Submits a new frame to the GUI for display.
     void updateFrame(scene_rdl2::fb_util::RenderBuffer *renderBuffer,

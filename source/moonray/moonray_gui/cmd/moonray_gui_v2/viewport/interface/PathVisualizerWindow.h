@@ -1,4 +1,4 @@
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -45,7 +45,9 @@ class PathVisualizerWindow : public Component {
         void drawSamplingSettingsMenu();
         void drawMaxDepthMenu();
         void drawVisibilityTogglesMenu();
-        void drawStyleMenu();
+        void drawStyleMenu(Viewport* viewport);
+        void drawMiscMenu();
+        void drawNodeInfo();
 
         moonray::rndr::PathVisualizerManager* mManager {nullptr};  // Pointer to the path visualizer manager
         int mWidth {250};                                          // Width of the window

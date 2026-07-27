@@ -17,6 +17,8 @@ sample(const uniform Map *uniform map,
        const varying State &state)
 {
     int choice = (int)evalAttrChoice(map, tls, state);
+    // cycle through max choices allowed
+    choice = choice % 64;
     switch(choice) {
         case 0:
             return evalAttrInput0(map, tls, state);

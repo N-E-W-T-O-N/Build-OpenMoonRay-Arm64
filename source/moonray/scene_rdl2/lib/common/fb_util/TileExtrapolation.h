@@ -131,12 +131,12 @@ protected:
         // bit scan forward : This function does not work when mask64 == 0 because bsf return undefined value.
         //
         uint64_t result;
-        #ifdef __APPLE__ // TODO: this was causing trouble with the viewport going white for anything not full32, re-check
+        #if !defined(__x86_64__) // bsfq is x86-only asm; gate on arch, not OS (Linux arm64 took the asm path)
         result =  __builtin_ctzll(mask64);
         if (mask64 == 0) return 0;
         #else
         asm volatile("bsfq %1, %0": "=r"(result): "r"(mask64));
-        #endif 
+        #endif
         return result;
     }
 }; // TileExtrapolationPhaseManager
@@ -552,11 +552,11 @@ TileExtrapolation::countRightZeroBit(uint64_t mask64) const
     // bit scan forward : counting zero bits on right side
     //
     uint64_t result;
-#ifdef __APPLE__ // TODO: double check this
+#if !defined(__x86_64__) // bsfq is x86-only asm; gate on arch, not OS
         result =  __builtin_ctzll(mask64);
     #else
     asm volatile("bsfq %1, %0": "=r"(result): "r"(mask64));
-    #endif 
+    #endif
     return result;
 }
 

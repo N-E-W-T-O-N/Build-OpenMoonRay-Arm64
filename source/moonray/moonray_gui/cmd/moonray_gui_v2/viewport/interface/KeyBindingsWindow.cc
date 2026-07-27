@@ -1,4 +1,4 @@
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #include "KeyBindingsWindow.h"
@@ -24,6 +24,7 @@ const std::set<Action> CAMERA_ACTIONS = {
     ACTION_CAM_SPEED_UP,
     ACTION_CAM_RESET,
     ACTION_CAM_RECENTER,
+    ACTION_CAM_FRAME_SCENE,
     ACTION_CAM_PRINT_MATRICES,
     ACTION_CAM_SET_UP_VECTOR,
     ACTION_CAM_ROTATE,
@@ -35,6 +36,7 @@ const std::set<Action> CAMERA_ACTIONS = {
 const std::set<Action> VIEWPORT_ACTIONS = {
     ACTION_IMAGE2D_PAN,
     ACTION_IMAGE2D_ZOOM,
+    ACTION_WINDOW_TOGGLE_AXIS_DISPLAY,
     ACTION_WINDOW_TOGGLE_EXPOSURE,
     ACTION_WINDOW_TOGGLE_GAMMA,
     ACTION_WINDOW_TOGGLE_KEY_BINDINGS,
@@ -80,24 +82,14 @@ const std::set<Action> VISUALIZATION_ACTIONS = {
     ACTION_FAST_PROGRESSIVE_TOGGLE,
     ACTION_FAST_PROGRESSIVE_NEXT_MODE,
     ACTION_FAST_PROGRESSIVE_PREV_MODE,
+    ACTION_TILE_PROGRESS_TOGGLE,
+    ACTION_PATH_VISUALIZER_ON_OFF,
     ACTION_PICK_PATH_VISUALIZER_PIXEL,
-    ACTION_TILE_PROGRESS_TOGGLE
+    ACTION_PATH_VISUALIZER_PREV_NODE,
+    ACTION_PATH_VISUALIZER_NEXT_NODE
 };
 } // end anonymous namespace
 
-struct ActionCategory {
-    const char* name;
-    const std::set<Action>& actions;
-};
-
-const std::vector<ActionCategory> ACTION_CATEGORIES = {
-    {"Camera",           CAMERA_ACTIONS},
-    {"Color Management", COLOR_MANAGEMENT_ACTIONS},
-    {"Denoising",        DENOISING_ACTIONS},
-    {"Output",           OUTPUT_ACTIONS},
-    {"Viewport",         VIEWPORT_ACTIONS},
-    {"Visualization",    VISUALIZATION_ACTIONS}
-};
 // -------------------------------------- Key Capture Class ------------------------------------------------------------
 
 void
@@ -572,8 +564,8 @@ KeyBindingsWindow::draw(Viewport* viewport, const ImVec2& currentPixel, const Im
 
             // Scrollable content section
             if (ImGui::BeginChild("ContentSection", ImVec2(0, 0), ImGuiChildFlags_None)) {
-                for (const auto& category : ACTION_CATEGORIES) {
-                    drawKeyBindingTable(category.name, category.actions, keyboard);
+                for (const auto& [categoryName, categoryActions] : ACTION_CATEGORIES) {
+                    drawKeyBindingTable(categoryName.c_str(), categoryActions, keyboard);
                 }
                 ImGui::EndChild();
             }

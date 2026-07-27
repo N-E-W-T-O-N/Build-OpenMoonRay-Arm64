@@ -509,10 +509,18 @@ numaNodeMBind(const unsigned numaNodeId,
                      nodeMask.data(),
                      nodeMask.size() * BITS_PER_ULONG,
                      0) != 0) {
-        munmap(memory, size);
-        std::ostringstream ostr;
-        ostr << "numaNodeMBInd() sysCallMBind() failed. numaNodeId:" << numaNodeId << " size:" << size;
-        throw scene_rdl2::except::RuntimeError(ostr.str());
+        // mbind() is unavailable or restricted in some environments (containers
+        // without CAP_SYS_NICE, seccomp-filtered sandboxes, emulators, kernels
+        // without CONFIG_NUMA). NUMA binding is an optimization, not a
+        // correctness requirement: keep the allocation and let the kernel place
+        // pages by default rather than aborting the render.
+        static bool warned = false;
+        if (!warned) {
+            warned = true;
+            std::cerr << "WARNING: mbind() unavailable (errno=" << errno << "); "
+                      << "continuing without NUMA memory binding.\n";
+        }
+        return memory;
     }
     return memory;
 }

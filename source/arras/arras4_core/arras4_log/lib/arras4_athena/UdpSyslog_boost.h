@@ -9,7 +9,7 @@
 #include <iomanip>
 
 #include <boost/asio/buffer.hpp>
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/io_context.hpp> // io_service was removed in Boost 1.87+
 #include <boost/asio/ip/udp.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/host_name.hpp>
@@ -37,12 +37,15 @@ class UdpSyslog
         mSocket.bind(anyAddress);
 
         // resolve hostname to target endpoint
+        // (resolver::query was removed along with io_service in Boost 1.87+;
+        //  use the modern resolve() overload returning a results range)
         boost::asio::ip::udp::resolver hostNameResolver(mService);
-        boost::asio::ip::udp::resolver::query q(boost::asio::ip::udp::v4(),
-                                                addr,
-                                                std::to_string(port), 
-                                                boost::asio::ip::resolver_query_base::address_configured);
-        mTarget = *hostNameResolver.resolve(q);
+        const auto results = hostNameResolver.resolve(
+            boost::asio::ip::udp::v4(),
+            addr,
+            std::to_string(port),
+            boost::asio::ip::udp::resolver::address_configured);
+        mTarget = *results.begin();
 
         // get local host name
         boost::system::error_code err;
@@ -61,7 +64,7 @@ class UdpSyslog
       
 private:
 
-    boost::asio::io_service mService;
+    boost::asio::io_context mService; // io_service removed in Boost 1.87+; io_context is the replacement
     boost::asio::ip::udp::socket mSocket;
     boost::asio::ip::udp::endpoint mTarget;
     std::string mLocalHostName;

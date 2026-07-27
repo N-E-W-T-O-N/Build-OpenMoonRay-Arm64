@@ -17,6 +17,7 @@ on:
       - '.github/**'
       - 'flowpipeline.yaml'
       - 'LICENSE'
+      - 'docs/**'
       - 'tsc/**'
 
 concurrency:

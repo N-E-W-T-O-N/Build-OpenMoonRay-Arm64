@@ -158,7 +158,8 @@ AVX2NEON_ABI
 __m256i _mm256_setzero_si256()
 {
     __m256i res;
-    res.lo = res.hi = vdupq_n_s32(0);
+    res.lo = res.hi = vreinterpretq_s64_s32(vdupq_n_s32(0));
+//    res.lo = res.hi = vdupq_n_s32(0);
     return res;
 }
 
@@ -203,6 +204,7 @@ __m256i _mm256_castsi128_si256 (__m128i a)
 {
     __m256i res;
     res.lo = a ;
+//  res.hi = vreinterpretq_s64_s32(vdupq_n_s32(0));    
     res.hi = vdupq_n_s32(0);
     return res;
 }
@@ -246,9 +248,13 @@ AVX2NEON_ABI
 __m256i _mm256_set1_epi32 (int a)
 {
     __m256i res;
-    res.lo = res.hi = vdupq_n_s32(a);
+    res.lo = res.hi = vreinterpretq_s64_s32(vdupq_n_s32(a));
+    //res.lo = res.hi = vdupq_n_s32(a);
     return res;
 }
+
+
+
 AVX2NEON_ABI
 __m256i _mm256_set1_epi8 (int a)
 {
@@ -433,8 +439,10 @@ AVX2NEON_ABI
 __m256i _mm256_abs_epi32(__m256i a)
 {
    __m256i res;
-   res.lo = vabsq_s32(a.lo);
-   res.hi = vabsq_s32(a.hi);
+   res.lo = vreinterpretq_s64_s32(vabsq_s32(vreinterpretq_s32_s64(a.lo)));
+   res.hi = vreinterpretq_s64_s32(vabsq_s32(vreinterpretq_s32_s64(a.hi)));
+   //res.lo = vabsq_s32(a.lo);
+   //res.hi = vabsq_s32(a.hi);
    return res;
 }
 

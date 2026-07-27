@@ -35,7 +35,11 @@ def load_exr_as_qimage(file_path, gamma=2.2):
     input_file.close()
 
     # Convert the image to numpy array and normalize to 0-255 range
-    image_array = np.array(image)
+    image_array = np.array(image, dtype=np.float64)
+
+    # Replace NaN/Inf with 0 and clamp negatives before gamma correction
+    image_array = np.nan_to_num(image_array, nan=0.0, posinf=1.0, neginf=0.0)
+    image_array = np.clip(image_array, 0.0, None)
 
     # Apply gamma correction
     image_array = np.power(image_array, 1/gamma)
@@ -76,6 +80,7 @@ def get_gigabytes_from_size(size_string, size_unit):
 class RenderProfileChartView(QtChart.QChartView):
 
     stat_signal = QtCore.pyqtSignal(str)
+    annotation_changed_signal = QtCore.pyqtSignal(list)
 
     stat_colors = dict()
 
@@ -197,6 +202,13 @@ class RenderProfileChartView(QtChart.QChartView):
         self.setRenderHint(QtGui.QPainter.Antialiasing)
 
         self.max_y = 0.0
+
+        # Annotations: list of {week, y, note} dicts
+        self.annotations = []
+        self._annotation_scatter = None
+        # Mapping from category index to week key, built during update_chart
+        self._category_week_keys = []
+        self._scatter_to_annotation = []
 
     def keyPressEvent(self, event):
         keymap = {
@@ -415,6 +427,176 @@ class RenderProfileChartView(QtChart.QChartView):
         xpu_line_series.attachAxis(x_axis)
         xpu_line_series.attachAxis(y_axis)
 
+    def set_annotations(self, annotations):
+        """Set the annotations list for the current chart."""
+        # Deep copy to decouple view state from persisted state
+        self.annotations = copy.deepcopy(annotations) if annotations else []
+
+    def _draw_annotations(self, chart, x_axis, y_axis):
+        """Draw annotation dots on the chart.
+
+        Each annotation is anchored to a week key and appears once per week
+        at the position of the first matching category (so only one dot is
+        shown even when multiple test types are visible for that week).
+        """
+        if not self.annotations or not self._category_week_keys:
+            self._annotation_scatter = None
+            self._scatter_to_annotation = []
+            return
+
+        self._annotation_scatter = QtChart.QScatterSeries()
+        self._annotation_scatter.setName("Annotations")
+        self._annotation_scatter.setMarkerSize(14)
+        self._annotation_scatter.setColor(QtGui.QColor(255, 255, 0))
+        self._annotation_scatter.setBorderColor(QtGui.QColor(0, 0, 0))
+
+        # Build a lookup of week_key -> first category index
+        week_to_first_cat = {}
+        for cat_idx, week_key in enumerate(self._category_week_keys):
+            if week_key not in week_to_first_cat:
+                week_to_first_cat[week_key] = cat_idx
+
+        self._scatter_to_annotation = []
+        y_max = y_axis.max()
+        for ann_idx, ann in enumerate(self.annotations):
+            cat_idx = week_to_first_cat.get(ann['week'])
+            if cat_idx is not None:
+                # Clamp y so the dot stays within the visible chart area
+                y = min(ann['y'], y_max) if y_max > 0 else ann['y']
+                self._annotation_scatter.append(cat_idx, y)
+                self._scatter_to_annotation.append(ann_idx)
+
+        if self._annotation_scatter.count() == 0:
+            self._annotation_scatter = None
+            self._scatter_to_annotation = []
+            return
+
+        self._annotation_scatter.hovered.connect(self._hover_annotation)
+        chart.addSeries(self._annotation_scatter)
+        self._annotation_scatter.attachAxis(x_axis)
+        self._annotation_scatter.attachAxis(y_axis)
+
+    def _hover_annotation(self, point, state):
+        """Show annotation note as tooltip and in status bar on hover."""
+        if state and self._annotation_scatter and self._scatter_to_annotation:
+            for i in range(self._annotation_scatter.count()):
+                p = self._annotation_scatter.at(i)
+                if abs(p.x() - point.x()) < 0.01 and abs(p.y() - point.y()) < 0.01:
+                    ann_idx = self._scatter_to_annotation[i]
+                    ann = self.annotations[ann_idx]
+                    self.stat_signal.emit(f"Annotation: {ann['note']}")
+                    QtWidgets.QToolTip.showText(QtGui.QCursor.pos(), ann['note'])
+                    return
+        if not state:
+            self.stat_signal.emit("")
+            QtWidgets.QToolTip.hideText()
+
+    def _snap_to_week(self, chart_x):
+        """Snap a chart x coordinate to the nearest category's week key.
+
+        Returns the week key string, or None if no categories exist.
+        """
+        if not self._category_week_keys:
+            return None
+        idx = max(0, min(round(chart_x), len(self._category_week_keys) - 1))
+        return self._category_week_keys[idx]
+
+    def mouseDoubleClickEvent(self, event):
+        """Double-click on the chart to add an annotation."""
+        if event.button() == QtCore.Qt.LeftButton and self.chart():
+            scene_pos = self.mapToScene(event.pos())
+            chart_pos = self.chart().mapToValue(scene_pos)
+
+            week_key = self._snap_to_week(chart_pos.x())
+            if week_key is None:
+                super().mouseDoubleClickEvent(event)
+                return
+
+            note, ok = QtWidgets.QInputDialog.getText(
+                self, "Add Annotation", "Enter annotation note:")
+            if ok and note.strip():
+                annotation = {
+                    'week': week_key,
+                    'y': round(chart_pos.y(), 2),
+                    'note': note.strip()
+                }
+                self.annotations.append(annotation)
+                self.annotation_changed_signal.emit(list(self.annotations))
+        super().mouseDoubleClickEvent(event)
+
+    def contextMenuEvent(self, event):
+        """Right-click context menu for annotation management."""
+        if not self.chart():
+            return super().contextMenuEvent(event)
+
+        scene_pos = self.mapToScene(event.pos())
+        chart_pos = self.chart().mapToValue(scene_pos)
+
+        clicked_week = self._snap_to_week(chart_pos.x())
+
+        # Find the closest annotation at this week within the y tolerance
+        nearest_ann = None
+        nearest_idx = -1
+        nearest_dist = float('inf')
+        y_tol = max(self.max_y * 0.05, 0.1)
+        for i, ann in enumerate(self.annotations):
+            if ann['week'] == clicked_week:
+                dy = abs(ann['y'] - chart_pos.y())
+                if dy < y_tol and dy < nearest_dist:
+                    nearest_dist = dy
+                    nearest_ann = ann
+                    nearest_idx = i
+
+        menu = QtWidgets.QMenu(self)
+
+        edit_action = None
+        delete_action = None
+        add_action = menu.addAction("Add annotation here")
+
+        if nearest_ann:
+            label = nearest_ann['note']
+            if len(label) > 40:
+                label = label[:40] + "..."
+            edit_action = menu.addAction(f'Edit: "{label}"')
+            delete_action = menu.addAction("Delete this annotation")
+
+        clear_action = None
+        if self.annotations:
+            menu.addSeparator()
+            clear_action = menu.addAction("Clear all annotations")
+
+        action = menu.exec_(event.globalPos())
+        if action is None:
+            return
+
+        if action == add_action:
+            week_key = clicked_week
+            if week_key is None:
+                return
+            note, ok = QtWidgets.QInputDialog.getText(
+                self, "Add Annotation", "Enter annotation note:")
+            if ok and note.strip():
+                annotation = {
+                    'week': week_key,
+                    'y': round(chart_pos.y(), 2),
+                    'note': note.strip()
+                }
+                self.annotations.append(annotation)
+                self.annotation_changed_signal.emit(list(self.annotations))
+        elif nearest_ann and action == edit_action:
+            note, ok = QtWidgets.QInputDialog.getText(
+                self, "Edit Annotation", "Edit annotation note:",
+                QtWidgets.QLineEdit.Normal, nearest_ann['note'])
+            if ok and note.strip():
+                self.annotations[nearest_idx]['note'] = note.strip()
+                self.annotation_changed_signal.emit(list(self.annotations))
+        elif nearest_ann and action == delete_action:
+            self.annotations.pop(nearest_idx)
+            self.annotation_changed_signal.emit(list(self.annotations))
+        elif clear_action and action == clear_action:
+            self.annotations.clear()
+            self.annotation_changed_signal.emit(list(self.annotations))
+
     @staticmethod
     def check_host_type(stats_dict, week, test_type, host_visibility_list):
         if len(host_visibility_list) == 0:
@@ -466,9 +648,12 @@ class RenderProfileChartView(QtChart.QChartView):
         title_font = chart.titleFont()
         title_font.setPointSize(font_size)
         chart.setTitleFont(title_font)
-        self.setChart(chart)
 
         if len(stats_dict) == 0:
+            self.setChart(chart)
+            self._category_week_keys = []
+            self._annotation_scatter = None
+            self._scatter_to_annotation = []
             return
 
         stacked_bar_series = QtChart.QStackedBarSeries()
@@ -480,6 +665,16 @@ class RenderProfileChartView(QtChart.QChartView):
             stat_names = self.stat_colors.keys()
 
         categories = list()
+        self._category_week_keys = []
+        _seen_categories = set()
+
+        def _track_category(label, week_key):
+            """Append to categories and track the week for each unique category."""
+            categories.append(label)
+            if label not in _seen_categories:
+                _seen_categories.add(label)
+                self._category_week_keys.append(week_key)
+
         for stat_name in stat_names:
            if not stat_visibility_list or (not show_pixel_samples and stat_name not in stat_visibility_list):
                 continue
@@ -554,7 +749,7 @@ class RenderProfileChartView(QtChart.QChartView):
 
                        # Categories (bottom of chart)
                        if missing:
-                           categories.append(f"MISSING! - {week} ({test_type})")
+                           _track_category(f"MISSING! - {week} ({test_type})", week)
                        elif show_host_names:
                            host_name = 'Unknown'
                            if 'host_name' in stats_dict[week][test_type]:
@@ -563,19 +758,19 @@ class RenderProfileChartView(QtChart.QChartView):
                               'fallback' in stats_dict[week][test_type] and \
                               'fallback_mode' in stats_dict[week][test_type]:
 
-                               categories.append(f"{host_name}: {week} "
-                                                 f"({test_type} -> {stats_dict[week][test_type]['fallback_mode']})")
+                               _track_category(f"{host_name}: {week} "
+                                                 f"({test_type} -> {stats_dict[week][test_type]['fallback_mode']})", week)
                            else:
-                               categories.append(f"{host_name}: {week} ({test_type})")
+                               _track_category(f"{host_name}: {week} ({test_type})", week)
                        else:
                            if show_fallback and \
                               'fallback' in stats_dict[week][test_type] and \
                               'fallback_mode' in stats_dict[week][test_type]:
 
-                               categories.append(f"{week} "
-                                                 f"({test_type} -> {stats_dict[week][test_type]['fallback_mode']})")
+                               _track_category(f"{week} "
+                                                 f"({test_type} -> {stats_dict[week][test_type]['fallback_mode']})", week)
                            else:
-                               categories.append(f"{week} ({test_type})")
+                               _track_category(f"{week} ({test_type})", week)
 
                        # Check for fallback
                        fallback = False
@@ -657,6 +852,12 @@ class RenderProfileChartView(QtChart.QChartView):
                                  stats_dict,
                                  type_visibility_list)
 
+        # Draw user annotations on top of everything
+        self._draw_annotations(chart, x_axis, y_axis)
+
+        # Set the fully-built chart in one step to avoid visual flicker
+        self.setChart(chart)
+
 
 class ImageTabWidget(QtWidgets.QTabWidget):
     """
@@ -710,55 +911,68 @@ class CustomTabBar(QtWidgets.QTabBar):
     def paintEvent(self, event):
         """
         This draws a custom colored tab with a rounded top which
-        tries to mimic the default tab style
+        tries to mimic the default tab style.  Derives colors from
+        the active palette so tabs remain readable in both themes.
         """
         painter = QtGui.QPainter(self)
+        palette = self.palette()
 
-        offset = 20
-        selected_color = QtGui.QColor(self.default_color.red() +   offset,
-                                      self.default_color.green() + offset,
-                                      self.default_color.blue() +  offset)
+        # Green highlight for the selected tab (intentionally not palette-derived)
+        selected_color = QtGui.QColor(60, 180, 75)
+        # Use palette-aware text colors
+        text_color = palette.color(QtGui.QPalette.ButtonText)
+        selected_text_color = palette.color(QtGui.QPalette.HighlightedText)
+        outline_color = palette.color(QtGui.QPalette.Dark)
 
         for index in range(self.count()):
-            rect = self.tabRect(index)
-            color = self.tabColors.get(index, self.default_color)
+            # Only use custom painting for tabs with custom colors or selected tabs
+            if index in self.tabColors or self.currentIndex() == index:
+                rect = self.tabRect(index)
+                color = self.tabColors.get(index, self.default_color)
 
-            radius = 8
-            path = QtGui.QPainterPath()
-            rect = rect.adjusted(0, 0, 0, radius)
+                radius = 8
+                path = QtGui.QPainterPath()
+                rect = rect.adjusted(0, 0, 0, radius)
 
-            # Draw the top-left rounded corner
-            path.moveTo(rect.topLeft())
-            path.arcTo(rect.left(), rect.top(), radius * 2, radius * 2, 180, -90)
+                # Draw the top-left rounded corner
+                path.moveTo(rect.topLeft())
+                path.arcTo(rect.left(), rect.top(), radius * 2, radius * 2, 180, -90)
 
-            # Draw the top-right rounded corner
-            path.lineTo(rect.right() - radius, rect.top())
-            path.arcTo(rect.right() - radius * 2, rect.top(), radius * 2, radius * 2, 90, -90)
+                # Draw the top-right rounded corner
+                path.lineTo(rect.right() - radius, rect.top())
+                path.arcTo(rect.right() - radius * 2, rect.top(), radius * 2, radius * 2, 90, -90)
 
-            # Draw the bottom edge (straight)
-            path.lineTo(rect.bottomRight())
-            path.lineTo(rect.bottomLeft())
-            path.closeSubpath()
+                # Draw the bottom edge (straight)
+                path.lineTo(rect.bottomRight())
+                path.lineTo(rect.bottomLeft())
+                path.closeSubpath()
 
-            # Fill the path with the tab color
-            if self.currentIndex() == index:
-                painter.setBrush(QtGui.QBrush(selected_color))
+                # Fill the path with the tab color
+                if self.currentIndex() == index:
+                    painter.setBrush(QtGui.QBrush(selected_color))
+                else:
+                    painter.setBrush(QtGui.QBrush(color))
                 painter.setPen(QtCore.Qt.NoPen)
                 painter.drawPath(path)
+
+                # Draw outline
+                painter.setPen(QtGui.QPen(outline_color, 1))
+                painter.setBrush(QtCore.Qt.NoBrush)
+                painter.drawPath(path)
+
+                # Draw text with palette-aware color
+                if self.currentIndex() == index:
+                    painter.setPen(selected_text_color)
+                else:
+                    painter.setPen(text_color)
+
+                text = self.tabText(index)
+                painter.drawText(rect, QtCore.Qt.AlignCenter, text)
             else:
-                painter.setBrush(QtGui.QBrush(color))
-                painter.setPen(QtCore.Qt.NoPen)
-                painter.drawPath(path)
-
-            # Draw black outline
-            painter.setPen(QtGui.QPen(QtCore.Qt.black, 1))
-            painter.setBrush(QtCore.Qt.NoBrush)
-            painter.drawPath(path)
-
-            painter.setPen(QtCore.Qt.white)
-
-            text = self.tabText(index)
-            painter.drawText(rect, QtCore.Qt.AlignCenter, text)
+                # Use default Qt rendering for tabs without custom colors
+                option = QtWidgets.QStyleOptionTab()
+                self.initStyleOption(option, index)
+                self.style().drawControl(QtWidgets.QStyle.CE_TabBarTab, option, painter, self)
 
 class CustomTabWidget(QtWidgets.QTabWidget):
     def __init__(self):
@@ -821,13 +1035,24 @@ class MyWindow(QtWidgets.QMainWindow):
             self.log_files = logs
             self.log_file_mode = True
 
+        # Debounce timer for test selection changes
+        self._test_selection_timer = QtCore.QTimer()
+        self._test_selection_timer.setSingleShot(True)
+        self._test_selection_timer.setInterval(150)
+        self._test_selection_timer.timeout.connect(self._do_selection_changed_tests)
+
+        # Lazy image loading state:
+        # (test_type, tab_index) -> {"output_image": str, "scroll_x": int, "scroll_y": int}
+        self._pending_image_loads = {}
+
         self.temp_dir = tempfile.mkdtemp()
         QtCore.QCoreApplication.instance().aboutToQuit.connect(self.cleanup)
 
         self.setGeometry(200, 200, 1300, 800)
 
-        # TODO Remove these hard coded directories - ask user on first run
-        self.profile_directory = "/work/rd/raas/moonray/ProfileRuns/latest_results/profile_reports"
+        self.profile_directory = os.environ.get(
+            "RPV_PROFILE_DIR",
+            "/work/rd/raas/moonray/ProfileRuns/latest_results/profile_reports")
         self.process_weeks = True
         self.current_test_name = None
 
@@ -982,6 +1207,11 @@ class MyWindow(QtWidgets.QMainWindow):
         self.render_profile_chart = RenderProfileChartView()
         self.render_profile_chart.stat_signal.connect(self.statusBar().showMessage)
 
+        # Annotations - stored per test name, persisted to JSON in the log/work directory
+        self.annotations = {}
+        self._load_annotations()
+        self.render_profile_chart.annotation_changed_signal.connect(self._on_annotations_changed)
+
         self.chart_label_angle = 90
         self.explicit_chart_height = 100
 
@@ -1121,6 +1351,7 @@ class MyWindow(QtWidgets.QMainWindow):
 
         # Image Tab
         self.image_tabs = None
+        self._images_stale = False  # True when stats changed but images not yet rebuilt
 
         self.image_size_spin_box = QtWidgets.QDoubleSpinBox()
         self.image_size_spin_box.setFixedWidth(50)
@@ -1197,11 +1428,21 @@ class MyWindow(QtWidgets.QMainWindow):
         image_scale_label = QtWidgets.QLabel("Image Scale")
         image_scale_widget.layout().addWidget(image_scale_label)
         image_scale_widget.layout().addWidget(self.image_size_spin_box)
-        help_label = QtWidgets.QLabel("Tip: Zoom with mouse wheel, Pan with left mouse, PgUp/PgDown changes tabs")
+        help_label = QtWidgets.QLabel("Tip: Zoom with mouse wheel, Pan with left mouse, PgUp/PgDn changes week tabs, Ctrl+PgUp/PgDn changes test type tabs")
         image_scale_widget.layout().addWidget(help_label)
         image_scale_widget.layout().addStretch()
 
         self.image_tab_widget = QtWidgets.QTabWidget()
+        self.image_tab_widget.setTabBar(CustomTabBar())
+
+        # Add shortcuts for cycling test type tabs
+        next_type_tab = QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+PgDown"), self.image_tab_widget)
+        next_type_tab.activated.connect(
+            lambda: self.image_tab_widget.setCurrentIndex((self.image_tab_widget.currentIndex() + 1) % self.image_tab_widget.count()))
+
+        prev_type_tab = QtWidgets.QShortcut(QtGui.QKeySequence("Ctrl+PgUp"), self.image_tab_widget)
+        prev_type_tab.activated.connect(
+            lambda: self.image_tab_widget.setCurrentIndex((self.image_tab_widget.currentIndex() - 1) % self.image_tab_widget.count()))
 
         self.image_widget.layout().addWidget(image_diff_widget)
         self.image_widget.layout().addWidget(image_scale_widget)
@@ -1212,6 +1453,11 @@ class MyWindow(QtWidgets.QMainWindow):
         logs_widget.setLayout(QtWidgets.QVBoxLayout())
         logs_widget.layout().addWidget(QtWidgets.QLabel("Select a week to display log files"))
         self.chart_image_log_tab_widget.addTab(logs_widget, "Logs")
+        self._images_tab_index = self.chart_image_log_tab_widget.indexOf(self.image_widget)
+        self._logs_tab_index = self.chart_image_log_tab_widget.indexOf(logs_widget)
+        self._logs_stale = False
+        self._pending_log_widgets = []  # list of (log_path, test_type)
+        self.chart_image_log_tab_widget.currentChanged.connect(self._on_main_tab_changed)
 
         # Font size
         log_font_size_widget = QtWidgets.QWidget()
@@ -1413,7 +1659,125 @@ class MyWindow(QtWidgets.QMainWindow):
         else:
             # Select first row and show chars
             self.tests_list.setCurrentRow(0)
-            self.selection_changed_tests()
+            self._do_selection_changed_tests()
+
+    def _get_annotations_file(self):
+        """Get the path to the annotations JSON file.
+
+        In log-file mode, stores annotations.json alongside the log files.
+        Otherwise, stores in a shared writable directory so annotations
+        are visible to all users.
+        """
+        if self.log_file_mode and hasattr(self, 'log_files') and self.log_files:
+            log_dir = os.path.dirname(os.path.abspath(self.log_files[0]))
+            return os.path.join(log_dir, "annotations.json")
+        shared_dir = os.environ.get("RPV_ANNOTATIONS_DIR",
+                                    "/work/gshad/moonshine/render_profile_viewer")
+        if not os.path.exists(shared_dir):
+            os.makedirs(shared_dir)
+        return os.path.join(shared_dir, "annotations.json")
+
+    @staticmethod
+    def _normalize_annotations_structure(data):
+        """Validate and normalize the annotations JSON structure.
+
+        Expects a dict mapping test names to lists of {week, y, note} objects.
+        Coerces y to float and note to string. Invalid entries are skipped.
+        """
+        if not isinstance(data, dict):
+            return {}
+        normalized = {}
+        for test_name, annotations in data.items():
+            if not isinstance(annotations, list):
+                continue
+            normalized_list = []
+            for ann in annotations:
+                if not isinstance(ann, dict):
+                    continue
+                try:
+                    week_raw = ann.get('week')
+                    y_raw = ann.get('y')
+                    if week_raw is None or y_raw is None:
+                        continue
+                    week = str(week_raw)
+                    y = float(y_raw)
+                except (TypeError, ValueError):
+                    continue
+                note = ann.get('note')
+                if note is None:
+                    note = ""
+                elif not isinstance(note, str):
+                    note = str(note)
+                normalized_list.append({'week': week, 'y': y, 'note': note})
+            if normalized_list:
+                normalized[test_name] = normalized_list
+        return normalized
+
+    def _load_annotations(self):
+        """Load annotations from the annotations JSON file."""
+        annotations_file = self._get_annotations_file()
+        if os.path.exists(annotations_file):
+            try:
+                with open(annotations_file, 'r') as f:
+                    raw_data = json.load(f)
+                self.annotations = self._normalize_annotations_structure(raw_data)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Error loading annotations from {annotations_file}: {e}")
+                self.annotations = {}
+        else:
+            self.annotations = {}
+
+    def _save_annotations(self):
+        """Save annotations to the annotations JSON file."""
+        annotations_file = self._get_annotations_file()
+        try:
+            with open(annotations_file, 'w') as f:
+                json.dump(self.annotations, f, indent=4)
+        except IOError as e:
+            print(f"Error saving annotations to {annotations_file}: {e}")
+
+    def _on_annotations_changed(self, annotations):
+        """Called when annotations are added/edited/deleted in the chart view."""
+        test_name = self._get_current_test_name()
+        if test_name:
+            if annotations:
+                self.annotations[test_name] = annotations
+            elif test_name in self.annotations:
+                del self.annotations[test_name]
+            self._save_annotations()
+            self.update_chart()
+
+    def _get_current_test_name(self):
+        """Get a stable annotation storage key for the current selection.
+
+        Uses UserRole data ('name') when available so the key does not
+        change when 'Show full paths' is toggled.
+        """
+        try:
+            if self.log_file_mode:
+                selected = self.logs_list.selectedItems()
+                if len(selected) > 1:
+                    # Build a deterministic key from sorted stable names
+                    names = []
+                    for item in selected:
+                        user_data = item.data(QtCore.Qt.UserRole)
+                        if isinstance(user_data, dict) and 'name' in user_data:
+                            names.append(user_data['name'])
+                        else:
+                            names.append(item.text())
+                    return "_multi_log_:" + "|".join(sorted(names))
+                elif len(selected) == 1:
+                    item = selected[0]
+                    user_data = item.data(QtCore.Qt.UserRole)
+                    if isinstance(user_data, dict) and 'name' in user_data:
+                        return user_data['name']
+                    return item.text()
+            else:
+                if hasattr(self, 'tests_list') and self.tests_list.selectedItems():
+                    return self.tests_list.selectedItems()[0].text()
+        except (AttributeError, IndexError):
+            pass
+        return None
 
     def cleanup(self):
         if self.temp_dir:
@@ -1464,7 +1828,7 @@ class MyWindow(QtWidgets.QMainWindow):
 
         self.populate_test_list()
         self.tests_list.setCurrentRow(0)
-        self.selection_changed_tests()
+        self._do_selection_changed_tests()
         
     def set_profile_dir(self):
         file_dialog = QtWidgets.QFileDialog(self)
@@ -1476,7 +1840,7 @@ class MyWindow(QtWidgets.QMainWindow):
             self.setWindowTitle(f"Render Profile Viewer {__version__} -- (Profile directory: {self.profile_directory})")
             self.populate_test_list()
             self.tests_list.setCurrentRow(0)
-            self.selection_changed_tests()
+            self._do_selection_changed_tests()
             self.weeks_list.selectAll()
             self.selection_changed_weeks()
 
@@ -1736,6 +2100,14 @@ class MyWindow(QtWidgets.QMainWindow):
                         weeks.add(week)
 
     def selection_changed_tests(self):
+        # Debounce: restart the timer on each selection change so that
+        # rapid clicks only trigger one expensive update.
+        self._test_selection_timer.start()
+
+    def _do_selection_changed_tests(self):
+        # Stop the debounce timer in case this was called directly
+        self._test_selection_timer.stop()
+
         # Reset zoom
         self.image_size_spin_box.setValue(1.0)
 
@@ -1891,7 +2263,7 @@ class MyWindow(QtWidgets.QMainWindow):
                 if test_type not in self.stats[week]:
                     self.stats[week][test_type] = self.get_stats(test_name, week, log_path, test_type)
                 if i == 0:
-                    self.create_log_widget(log_path, test_type)
+                    self._pending_log_widgets.append((log_path, test_type))
 
     def apply_ansi_escape_codes(self, log_browser, text):
         cursor = log_browser.textCursor()
@@ -2023,6 +2395,8 @@ class MyWindow(QtWidgets.QMainWindow):
         self.log_vector_tab = None
         self.log_xpu_tab = None
         self.log_tab_widget.clear()
+        self._pending_log_widgets = []
+        self._logs_stale = False
 
         test_name = self.tests_list.selectedItems()[0].text()
         if self.scalar_checkbox.isChecked():
@@ -2032,13 +2406,18 @@ class MyWindow(QtWidgets.QMainWindow):
         if self.xpu_checkbox.isChecked():
             self.process_logs(test_name, 'xpu')
 
+        # Defer log widget creation unless the Logs tab is currently visible
+        self._logs_stale = True
+        if self.chart_image_log_tab_widget.currentIndex() == self._logs_tab_index:
+            self._flush_log_widgets()
+
         # Set initial font size
         self.change_logs_font_size(self.log_font_size_spinner.value())
 
         self.update_chart(resize=True)
 
         try:
-            self.update_images()
+            self._request_update_images()
         except (RuntimeError, KeyError) as e:
             print(f"Caught an exception: {e}")
 
@@ -2096,7 +2475,7 @@ class MyWindow(QtWidgets.QMainWindow):
         self.update_chart(resize=True)
 
         try:
-            self.update_images()
+            self._request_update_images()
         except (RuntimeError, KeyError) as e:
             print(f"Caught an exception: {e}")
 
@@ -2124,6 +2503,17 @@ class MyWindow(QtWidgets.QMainWindow):
         for test_type, scroll_areas in self.scroll_areas.items():
             for area in scroll_areas:
                 area.horizontalScrollBar().setValue(value)
+
+    def sync_week_tabs(self, index):
+        """Synchronize week tab selection across all test types"""
+        # Block signals to prevent infinite recursion
+        for test_type in self.image_tabs:
+            if self.image_tabs[test_type]:
+                self.image_tabs[test_type].blockSignals(True)
+                # Only set index if it's valid for this test type
+                if index < self.image_tabs[test_type].count():
+                    self.image_tabs[test_type].setCurrentIndex(index)
+                self.image_tabs[test_type].blockSignals(False)
 
     def create_image_widget(self,
                             test_type,
@@ -2172,19 +2562,105 @@ class MyWindow(QtWidgets.QMainWindow):
                     break
         return (scroll_x, scroll_y)
 
+    def _load_image_for_tab(self, test_type, tab_index):
+        """Lazily load an image when its tab becomes visible."""
+        tab_widget = self.image_tabs.get(test_type)
+        if tab_widget is None:
+            return
+        key = (test_type, tab_index)
+        if key not in self._pending_image_loads:
+            return
+
+        info = self._pending_image_loads.pop(key)
+        output_image = info['output_image']
+        scroll_x = info['scroll_x']
+        scroll_y = info['scroll_y']
+
+        q_image = None
+        image_width = 0
+        image_height = 0
+        if output_image in self.images_cache:
+            (q_image, image_width, image_height) = self.images_cache[output_image]
+        elif os.path.exists(output_image):
+            (q_image, image_width, image_height) = load_exr_as_qimage(output_image)
+            self.images_cache[output_image] = (q_image, image_width, image_height)
+        else:
+            return
+
+        # Replace the placeholder widget with the real image
+        widget = self.create_image_widget(test_type,
+                                          output_image,
+                                          q_image,
+                                          image_width,
+                                          image_height,
+                                          scroll_x,
+                                          scroll_y)
+        tab_text = tab_widget.tabText(tab_index)
+        tab_color = tab_widget.tabBar().tabTextColor(tab_index)
+        # Block signals to prevent removeTab/insertTab from cascading
+        # through currentChanged → loading every other tab
+        tab_widget.blockSignals(True)
+        tab_widget.removeTab(tab_index)
+        tab_widget.insertTab(tab_index, widget, tab_text)
+        if tab_color.isValid():
+            tab_widget.tabBar().setTabTextColor(tab_index, tab_color)
+        tab_widget.setCurrentIndex(tab_index)
+        tab_widget.blockSignals(False)
+
+    def _on_image_tab_changed(self, test_type, index):
+        """Called when a week tab is selected; loads the image if pending."""
+        self._load_image_for_tab(test_type, index)
+        self.sync_week_tabs(index)
+
+    def _request_update_images(self):
+        """Mark images as needing rebuild; only do the work if the Images tab is visible."""
+        self._images_stale = True
+        if self.chart_image_log_tab_widget.currentIndex() == self._images_tab_index:
+            self._flush_update_images()
+
+    def _flush_update_images(self):
+        """Actually rebuild image tabs if they are stale."""
+        if not self._images_stale:
+            return
+        self._images_stale = False
+        self.update_images()
+
+    def _on_main_tab_changed(self, index):
+        """When the user switches to the Images or Logs tab, rebuild if needed."""
+        if index == self._images_tab_index:
+            try:
+                self._flush_update_images()
+            except (RuntimeError, KeyError) as e:
+                print(f"Caught an exception: {e}")
+        elif index == self._logs_tab_index:
+            self._flush_log_widgets()
+
+    def _flush_log_widgets(self):
+        """Actually create log widgets if they are pending."""
+        if not self._logs_stale:
+            return
+        self._logs_stale = False
+        for log_path, test_type in self._pending_log_widgets:
+            self.create_log_widget(log_path, test_type)
+        self._pending_log_widgets = []
+        self.change_logs_font_size(self.log_font_size_spinner.value())
+
     def update_images(self):
         # Get previous scroll positions
         (scroll_x, scroll_y) = self.get_scroll_positions()
 
         # Remember the current tabs to restore at the end of this function
         current_tab_indices = {"scalar":0, "vector":0, "xpu":0}
+        had_previous_tabs = {"scalar": False, "vector": False, "xpu": False}
         if self.image_tabs:
             for test_type in self.image_tabs:
-                if self.image_tabs[test_type]:
-                        current_tab_indices[test_type] = self.image_tabs[test_type].currentIndex()
+                if self.image_tabs[test_type] and self.image_tabs[test_type].count() > 0:
+                    had_previous_tabs[test_type] = True
+                    current_tab_indices[test_type] = self.image_tabs[test_type].currentIndex()
 
         self.scroll_areas = {"scalar": [], "vector": [], "xpu": []}  # Store scroll areas
         self.image_tab_widget.clear()
+        self._pending_image_loads = {}
 
         self.image_tabs = {
             'scalar': self.create_tab_widget("scalar") if self.scalar_checkbox.isChecked() else None,
@@ -2194,8 +2670,6 @@ class MyWindow(QtWidgets.QMainWindow):
 
         for week in self.stats:
             for test_type in self.stats[week]:
-                QtCore.QCoreApplication.processEvents()
-
                 # Check if the current test type is active
                 if self.image_tabs.get(test_type) is None:
                     continue
@@ -2203,7 +2677,7 @@ class MyWindow(QtWidgets.QMainWindow):
                 if 'output_image' not in self.stats[week][test_type]:
                     continue
 
-                # Add failed diff image if it exists
+                # Add failed diff image if it exists (these are already loaded)
                 if test_type in self.diff_cache and week in self.diff_cache[test_type]:
                     (q_image, image_width, image_height) = self.diff_cache[test_type][week]
                     image_widget = self.create_image_widget(test_type,
@@ -2217,33 +2691,34 @@ class MyWindow(QtWidgets.QMainWindow):
                     # Create tab with a red color
                     self.image_tabs[test_type].addColoredTab(image_widget, "FAIL", "red")
 
-                # Add main image
                 output_image = self.stats[week][test_type]['output_image']
-                q_image = None
-                image_width = 0
-                image_height = 0
-                if output_image in self.images_cache:
-                    (q_image, image_width, image_height) = self.images_cache[output_image]
-                else:
-                    if os.path.exists(output_image):
-                        if not output_image in self.images_cache:
-                            (q_image, image_width, image_height) = load_exr_as_qimage(output_image)
-                            self.images_cache[output_image] = (q_image, image_width, image_height)
-                    else:
-                        continue
 
-                image_widget = self.create_image_widget(test_type,
-                                                        output_image,
-                                                        q_image,
-                                                        image_width,
-                                                        image_height,
-                                                        scroll_x,
-                                                        scroll_y)
+                # Skip if the image file doesn't exist and isn't cached
+                if output_image not in self.images_cache and not os.path.exists(output_image):
+                    continue
 
                 if self.log_file_mode:
                     tab_name = self.stats[week][test_type]['display_name']
                 else:
                     tab_name = f"{week}"
+
+                # If the image is already cached, create the widget immediately
+                if output_image in self.images_cache:
+                    (q_image, image_width, image_height) = self.images_cache[output_image]
+                    image_widget = self.create_image_widget(test_type,
+                                                            output_image,
+                                                            q_image,
+                                                            image_width,
+                                                            image_height,
+                                                            scroll_x,
+                                                            scroll_y)
+                else:
+                    # Create a lightweight placeholder; actual load happens on tab switch
+                    image_widget = QtWidgets.QWidget()
+                    image_widget.setLayout(QtWidgets.QVBoxLayout())
+                    placeholder = QtWidgets.QLabel("Loading...")
+                    placeholder.setAlignment(QtCore.Qt.AlignCenter)
+                    image_widget.layout().addWidget(placeholder)
 
                 # Use current button color from light/dark theme for tab color
                 app = QtWidgets.QApplication.instance()
@@ -2251,15 +2726,62 @@ class MyWindow(QtWidgets.QMainWindow):
                 col = palette.color(QtGui.QPalette.Button)
                 self.image_tabs[test_type].addColoredTab(image_widget, tab_name, col)
 
+                # Register pending load for uncached images
+                if output_image not in self.images_cache:
+                    tab_index = self.image_tabs[test_type].count() - 1
+                    self._pending_image_loads[(test_type, tab_index)] = {
+                        'output_image': output_image,
+                        'scroll_x': scroll_x,
+                        'scroll_y': scroll_y,
+                    }
+
         # Add tabs to the image tab widget
         for test_type, tab in self.image_tabs.items():
             if tab is not None:
                 self.image_tab_widget.addTab(tab, test_type.capitalize())
 
-        # Restore current tab
+        # Restore current tab (or set to last tab if first time)
         for test_type in self.image_tabs:
             if self.image_tabs[test_type]:
-                self.image_tabs[test_type].setCurrentIndex(current_tab_indices[test_type])
+                # If no previous tabs, default to the last week instead of first
+                if not had_previous_tabs[test_type] and self.image_tabs[test_type].count() > 0:
+                    self.image_tabs[test_type].setCurrentIndex(self.image_tabs[test_type].count() - 1)
+                else:
+                    self.image_tabs[test_type].setCurrentIndex(current_tab_indices[test_type])
+
+        # Connect signals for lazy loading and tab sync
+        for test_type in self.image_tabs:
+            if self.image_tabs[test_type]:
+                tt = test_type  # capture for lambda
+                self.image_tabs[test_type].currentChanged.connect(
+                    lambda index, t=tt: self._on_image_tab_changed(t, index))
+
+        # Ensure outer image tab changes also trigger lazy loading for the newly visible test type
+        try:
+            self.image_tab_widget.currentChanged.disconnect(self._on_outer_image_tab_changed)
+        except TypeError:
+            pass
+        self.image_tab_widget.currentChanged.connect(self._on_outer_image_tab_changed)
+
+        # Eagerly load the currently visible tab for each test type
+        for test_type in self.image_tabs:
+            if self.image_tabs[test_type] and self.image_tabs[test_type].count() > 0:
+                self._load_image_for_tab(test_type, self.image_tabs[test_type].currentIndex())
+
+    def _on_outer_image_tab_changed(self, index):
+        """When the outer image_tab_widget (Scalar/Vector/XPU) changes, ensure
+        the current week tab for the newly visible test type is loaded."""
+        if index < 0:
+            return
+        outer_widget = self.image_tab_widget.widget(index)
+        if outer_widget is None:
+            return
+        # Find which test_type this outer widget corresponds to
+        for test_type, tab_widget in self.image_tabs.items():
+            if tab_widget is outer_widget:
+                if tab_widget.count() > 0 and tab_widget.currentIndex() >= 0:
+                    self._load_image_for_tab(test_type, tab_widget.currentIndex())
+                break
 
     def show_selected_images(self):
         cmd = ['iv']
@@ -2389,6 +2911,11 @@ class MyWindow(QtWidgets.QMainWindow):
                 test_name = self.logs_list.selectedItems()[0].text()
         else:
             test_name = self.tests_list.selectedItems()[0].text()
+
+        # Set annotations for the current test using a stable key
+        annotation_key = self._get_current_test_name()
+        current_annotations = self.annotations.get(annotation_key, []) if annotation_key else []
+        self.render_profile_chart.set_annotations(current_annotations)
 
         self.render_profile_chart.update_chart(test_name,
                                                my_stats,

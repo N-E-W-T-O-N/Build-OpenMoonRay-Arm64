@@ -17,7 +17,7 @@ def version():
     """
     Increment the build in the version.
     """
-    _version = '15.22'
+    _version = '16.2'
     from rezbuild import earlybind
     return earlybind.version(this, _version)
 
@@ -100,7 +100,7 @@ requires = [
 ]
 
 private_build_requires = [
-    'cmake_modules-1.0',
+    'cmake_modules-1.1',
     'ispc-1.20.0.x',
     'ssl'
 ]

@@ -1,4 +1,4 @@
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -55,7 +55,14 @@ public:
     // Show previous/next snapshot
     void showPrevSnapshot();
     void showNextSnapshot();
-    
+
+    // Toggle path visualizer on/off
+    void pathVisualizerToggleOn();
+
+    // Select the next/prev node
+    void prevPathVisualizerNode();
+    void nextPathVisualizerNode();
+
     // -------------------------------------- Getters --------------------------------------- //
     // Checks if the GLFW window has been closed
     bool isWindowOpen() const;
@@ -137,12 +144,26 @@ public:
 
     // Get pointer to path visualizer manager
     moonray::rndr::PathVisualizerManager* getPathVisualizerManager() const { 
+        if (!mRenderContext) return nullptr;
         return mRenderContext->getPathVisualizerManager().get(); 
     };
+
+    bool getPVShowOnlyEndpoints() const { return mPVShowOnlyEndpoints; }
+
+    // Get whether to update the navigation lines
+    bool getUpdateAxis() const { return mUpdateAxis; }
+
+    // Get the screen-space display vector for the x, y, and z axes
+    const scene_rdl2::math::Vec2f& getAxisXDir() const { return mAxisXDir; }
+    const scene_rdl2::math::Vec2f& getAxisYDir() const { return mAxisYDir; }
+    const scene_rdl2::math::Vec2f& getAxisZDir() const { return mAxisZDir; }
 
     /// ---------------------------------- Setters ----------------------------------------- ///
     // Sets the render context for the cameras
     void setCameraRenderContext(RenderContext &context);
+
+    // Updates the render context pointer (called when RenderContext is recreated)
+    void updateRenderContext(RenderContext* context) { mRenderContext = context; }
 
     // Sets the default camera transform
     void setDefaultCameraTransform(const scene_rdl2::math::Mat4f &xform);
@@ -158,6 +179,12 @@ public:
 
     // Sets whether the viewport texture needs to be refreshed
     void setNeedsRefresh(const bool refresh) { mNeedsRefresh = refresh; }
+
+    // Sets whether we need to update the navigation lines
+    void setUpdateAxis(const bool update) { mUpdateAxis = update; }
+
+    // Sets the path visualizer setting to show only endpoints
+    void setPVShowOnlyEndpoints(const bool show) { mPVShowOnlyEndpoints = show; }
 
 private:
     // Uses the framebuffer data to update the viewport display
@@ -277,7 +304,7 @@ private:
     float mExposure {0.f};                                      // current exposure value
     float mGamma {1.f};                                         // current gamma value
 
-    int mRenderOutputIndex {0};                                 // Current render output index
+    int mRenderOutputIndex {-1};                                // Current render output index
     bool mProgressiveFast {false};                              // Whether fast progressive mode is on
     FastRenderMode mFastMode {FastRenderMode::NORMALS};         // Current fast progressive mode
     int mInspectorMode {INSPECT_NONE};                          // Current inspector mode
@@ -291,6 +318,13 @@ private:
     bool mSnapshotsLoaded {false};                              // have we loaded existing snapshots yet?
 
     bool mOpen {true};                                          // whether the viewport is open
+
+    bool mUpdateAxis {false};                                   // whether to update axis direction vectors
+    scene_rdl2::math::Vec2f mAxisXDir;                          // Navigation direction vector for the X axis
+    scene_rdl2::math::Vec2f mAxisYDir;                          // Navigation direction vector for the Y axis
+    scene_rdl2::math::Vec2f mAxisZDir;                          // Navigation direction vector for the Z axis
+
+    bool mPVShowOnlyEndpoints {false};                          // if path visualizer should only display endpoints
 };
    
 } // namespace moonray_gui_v2

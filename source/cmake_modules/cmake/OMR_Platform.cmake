@@ -26,6 +26,13 @@ if(CMAKE_SYSTEM_NAME IN_LIST WindowsPlatforms)
 endif()
 
 # ================================================
+# CPU architecture (arch != OS: Linux may be aarch64)
+# ================================================
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
+    set(IsArm64 TRUE)
+endif()
+
+# ================================================
 # Platform-specific globals
 # ================================================
 include(CheckLanguage)
@@ -68,7 +75,21 @@ if(IsDarwinPlatform)
     set(GLOBAL_ISPC_FLAGS -D__aarch64__ -D__APPLE__ -D__ARM_NEON__)
     set(GLOBAL_ISPC_INSTRUCTION_SETS neon-i32x4)
     set(CMAKE_OSX_ARCHITECTURES arm64)
-else() # Linux/Windows
+elseif(IsLinuxPlatform AND IsArm64)
+    # Linux on aarch64/NEON. GCC on aarch64 defines __ARM_NEON (no trailing
+    # underscores) but MoonRay's code gates on __ARM_NEON__, so define it the
+    # same way x86 defines __AVX__. No __AVX__ here. Keep the Linux linker
+    # conventions (ELF rpaths + new-dtags), unlike the Darwin/Mach-O branch.
+    set(GLOBAL_CPP_FLAGS __ARM_NEON__)
+    # --no-as-needed: Ubuntu defaults to --as-needed, which drops libraries an
+    # executable doesn't reference directly — but MoonRay's rt<->pbr circular
+    # design relies on executables carrying both (rt.so has undefined pbr syms).
+    # Rocky9/upstream never sees this because as-needed is off there.
+    set(GLOBAL_LINK_FLAGS "-Wl,--enable-new-dtags" "-Wl,--no-as-needed")
+    set(GLOBAL_INSTALL_RPATH "$ORIGIN" "$ORIGIN/../lib64" "${COMPILER_LIBRARY_DIR}")
+    set(GLOBAL_ISPC_FLAGS -D__aarch64__ -D__ARM_NEON__)
+    set(GLOBAL_ISPC_INSTRUCTION_SETS neon-i32x4)
+else() # Linux/Windows on x86-64
     set(GLOBAL_CPP_FLAGS __AVX__)
     set(GLOBAL_LINK_FLAGS "-Wl,--enable-new-dtags")
     set(GLOBAL_INSTALL_RPATH "$ORIGIN" "$ORIGIN/../lib64" "${COMPILER_LIBRARY_DIR}")
@@ -79,7 +100,12 @@ endif()
 # Options
 # ================================================
 if(IsLinuxPlatform)
-    option(MOONRAY_USE_OPTIX "Whether to enable XPU mode and Optix denoising" YES)
+    # OptiX/XPU needs CUDA (x86 + NVIDIA only); default OFF on aarch64.
+    if(IsArm64)
+        option(MOONRAY_USE_OPTIX "Whether to enable XPU mode and Optix denoising" NO)
+    else()
+        option(MOONRAY_USE_OPTIX "Whether to enable XPU mode and Optix denoising" YES)
+    endif()
 elseif(IsDarwinPlatform)
     option(MOONRAY_USE_METAL "Whether to enable XPU mode and OIDN Metal denoising" YES)
 endif()

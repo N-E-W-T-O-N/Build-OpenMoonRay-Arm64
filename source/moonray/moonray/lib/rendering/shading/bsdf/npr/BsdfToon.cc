@@ -389,10 +389,10 @@ ToonBsdfLobe::eval(const BsdfSlice &slice,
                       wi,
                       sEpsilon));  // Must be > 1e-9
     }
-    float cosThetaWi = max(dot(N, wi), 0.0f);
+    float cosThetaWi = dot(N, wi);
 
     if (pdf != NULL) {
-        *pdf = cosThetaWi * sOneOverPi;
+        *pdf = max(cosThetaWi, 0.0f) * sOneOverPi;
     }
 
     // Note: we assume this lobe has been setup with a OneMinus*Fresnel
@@ -425,12 +425,17 @@ ToonBsdfLobe::show(std::ostream& os,
                    const std::string& indent) const
 {
     const Color& scale = getScale();
+    const Vec3f& N = mFrame.getN();
     const Fresnel * const fresnel = getFresnel();
     os << indent << "[ToonBsdfLobe]\n";
     os << indent << "    " << "scale: "
         << scale.r << " " << scale.g << " " << scale.b << "\n";
-    os << indent << "    " << "base color: "
+    os << indent << "    " << "N: "
+        << N.x << " " << N.y << " " << N.z << "\n";
+    os << indent << "    " << "albedo: "
         << mAlbedo.r << " " << mAlbedo.g << " " << mAlbedo.b << "\n";
+    os << indent << "    " << "extend ramp: " << (mExtendRamp ? "true" : "false") << "\n";
+    os << indent << "    " << "ramp input scale: " << mRampInputScale << "\n";
     if (fresnel) {
         fresnel->show(os, indent + "    ");
     }

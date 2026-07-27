@@ -1,4 +1,4 @@
-// Copyright 2023-2024 DreamWorks Animation LLC
+// Copyright 2023-2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 
@@ -286,6 +286,16 @@ drawBsdfSamples(pbr::TLState *pbrTls, const BsdfSampler &bSampler, const LightSe
             }
 #endif
             bool isValid = bSampler.sample(pbrTls, lobeIndex, P, bsdfSample[0], bsdfSample[1], bsmp[s]);
+
+            // Record sample for path visualization
+            if (pbrTls->mFs->mSimulationMode) {
+                // TODO: We might want to investigate the desired ray depth behavior with mirror materials. 
+                // If we want to visualize ray depth the same way we do with other non-mirror rays, I believe we will 
+                // need to use regular ray depth, instead of the nonMirrorDepth we use here.
+                mcrt_common::Ray ray(P, bsmp[s].wi, 0.f, scene_rdl2::math::sMaxValue, 0.f, pv.nonMirrorDepth + 1);
+                pbrTls->mFs->mScene->recordBsdfSample(ray, sp.mPixel, lobeType);
+            }
+
             if (!isValid) {
                 continue;
             }
@@ -548,6 +558,15 @@ drawLightSamples(pbr::TLState *pbrTls, const LightSetSampler &lSampler, const Bs
         lSampler.sampleAndEval(pbrTls->mTopLevelTls, light, lightFilterList, P, N, lightFilterSample,
                                time, &pv, lightSample, lsmp[i], rayDirFootprint);
 
+        // Record sample for path visualization
+        if (pbrTls->mFs->mSimulationMode) {
+            // TODO: We might want to investigate the desired ray depth behavior with mirror materials. 
+            // If we want to visualize ray depth the same way we do with other non-mirror rays, I believe we will 
+            // need to use regular ray depth, instead of the nonMirrorDepth we use here.
+            mcrt_common::Ray ray(P, lsmp[i].wi, 0.f, scene_rdl2::math::sMaxValue, 0.f, pv.nonMirrorDepth + 1);
+            pbrTls->mFs->mScene->recordLightSample(ray, sp.mPixel);
+        }
+
         if (lsmp[i].isInvalid()) {
             // These samples occur on the shadow terminator -- they are invalid because they face
             // away from the point (dot(n, wi) < epsilon). They should count as "misses" in the visibility aov.
@@ -642,6 +661,20 @@ applyRussianRoulette(const LightSetSampler &lSampler, LightSample *lsmp,
         }
 
     }
+}
+
+float
+stochasticPresence(Subpixel &sp, const PathVertex &pv, unsigned &sequenceID, float presence)
+{
+    SequenceIDIntegrator sidPresence( sp.mPixel,
+                                      sp.mSubpixelIndex,
+                                      SequenceType::Presence,
+                                      sequenceID,
+                                      pv.presenceDepth );
+    IntegratorSample1D prSamples(sidPresence);
+    float prSample;
+    prSamples.getSample(&prSample, pv.presenceDepth);
+    return (prSample < presence) ? 1.f : 0.f;
 }
 
 void

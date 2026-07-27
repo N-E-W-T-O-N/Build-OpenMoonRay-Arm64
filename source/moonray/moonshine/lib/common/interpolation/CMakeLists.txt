@@ -37,9 +37,9 @@ target_link_libraries(${objLib}
 # Set standard compile/link options
 Moonshine_ispc_compile_options(${objLib})
 
-get_target_property(objLibDeps ${objLib} DEPENDENCY)
-if(NOT objLibDeps STREQUAL "")
-    add_dependencies(${objLibDeps} 
+get_target_property(objLibDeps ${objLib} ISPC_DEP_TARGET)
+if(objLibDeps)
+    add_dependencies(${objLibDeps}
         Moonray::shading_ispc
         SceneRdl2::common_platform
     )

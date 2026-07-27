@@ -12,6 +12,10 @@
 #include <scene_rdl2/render/util/Args.h>
 #include <scene_rdl2/scene/rdl2/Camera.h>
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 namespace moonray_gui_v2 {
 
 class RaasGuiApplication : public moonray::RaasApplication
@@ -136,6 +140,15 @@ RaasGuiApplication::startRenderThread(void* me)
         scene_rdl2::math::Mat4f origCameraXform;
         scene_rdl2::math::Mat4f currCameraXform;
 
+        // Deltas applied since the base scene load. When a delta requires a full
+        // reload we rebuild the RenderContext from the base scene files, so these
+        // must be replayed into the fresh context to preserve their state (e.g.
+        // visibility or other attribute changes). We intentionally do NOT clear
+        // this list after a reload: each full reload always starts from the
+        // original base scene files, so every accumulated delta must be replayed
+        // again to reconstruct the current state.
+        std::vector<std::string> appliedDeltas;
+
         do {
             std::unique_ptr<moonray::rndr::RenderContext> renderContext;
 
@@ -145,6 +158,16 @@ RaasGuiApplication::startRenderThread(void* me)
                     // Scene load happens in here.
                     renderContext.reset(new moonray::rndr::RenderContext(self->mOptions,
                                                                 &self->mInitMessages));
+
+                    // Replay any previously applied deltas so a full reload
+                    // preserves their state. Queued before initialize() so they
+                    // are baked into the full scene load, which rebuilds all
+                    // geometry with complete primitive attribute tables (e.g.
+                    // ref_P).
+                    for (const std::string& deltasFile : appliedDeltas) {
+                        renderContext->updateScene(deltasFile);
+                    }
+
                     constexpr auto loggingConfig = moonray::rndr::RenderContext::LoggingConfiguration::ATHENA_DISABLED;
                     renderContext->initialize(self->mInitMessages, loggingConfig);
 
@@ -208,10 +231,26 @@ RaasGuiApplication::startRenderThread(void* me)
                     currCameraXform = self->mRenderGui->endInteractiveRendering();
 
                     // Apply the deltas to the scene objects
+                    bool geometryChanged = false;
                     for (const std::string & filename : changedDeltaFiles) {
-                        renderContext->updateScene(filename);
+                        // Remember this delta so it can be replayed if we later
+                        // need to rebuild the RenderContext from scratch.
+                        if (std::find(appliedDeltas.begin(), appliedDeltas.end(), filename) == appliedDeltas.end()) {
+                            appliedDeltas.push_back(filename);
+                        }
+                        if (renderContext->updateScene(filename)) {
+                            // Geometry has changed, trigger a full reload by breaking out of this loop
+                            geometryChanged = true;
+                            break;
+                        }
                     }
+                    
+                    if (geometryChanged) {
+                        break;  // Exit the main loop to trigger full reload
+                    }
+                    
                     changedDeltaFiles.clear();
+                    
                     // Tolerate a double to float precision loss in the gui
                     rdlaCameraXform = toFloat(camera->get(rdl2::Node::sNodeXformKey));
 

@@ -15,7 +15,7 @@
 namespace scene_rdl2 {
 namespace util {    
 
-#ifdef PLATFORM_APPLE
+#if defined(__aarch64__) // casp is ARMv8.1+ LSE — arch-gated, not OS-gated (was PLATFORM_APPLE)
 
 inline bool
 atomicCmpxchg128(volatile void* ptr, void* expected, void* desired)
@@ -63,7 +63,7 @@ atomicCmpxchg128(volatile void* ptr, void* expected, void* desired)
     return success;
 }
 
-#else // else of PLATFORM_APPLE
+#else // x86-64: cmpxchg16b
 
 inline bool
 atomicCmpxchg128(volatile void* ptr, void* expected, void* desired)

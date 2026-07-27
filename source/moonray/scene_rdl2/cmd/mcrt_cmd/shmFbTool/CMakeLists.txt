@@ -8,7 +8,7 @@ add_executable(${target})
 target_sources(${target}
     PRIVATE
         main.cc
-	ShmFbTool.cc
+        ShmFbTool.cc
 )
 
 target_link_libraries(${target}

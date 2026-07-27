@@ -236,7 +236,7 @@
             "type": "Vec3f",
             "default": "0.f",
             "flags": "FLAGS_BINDABLE",
-            "comment": "Rotates the noise in space based on the specified rotation order",
+            "comment": "Rotates the noise in degrees based on the specified rotation order",
             "group": "Transform"
         },
         "attrRotationOrder": {

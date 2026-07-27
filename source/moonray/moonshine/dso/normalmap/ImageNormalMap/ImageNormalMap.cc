@@ -102,7 +102,9 @@ ImageNormalMap::updateUdimTexture()
     }
     if (needsUpdate ||
         hasChanged(attrTexture) ||
-        hasChanged(attrWrapAround)) {
+        hasChanged(attrWrapAround) ||
+        hasChanged(attrUseDefaultValue) ||
+        hasChanged(attrDefaultValue)) {
 
         std::string errorStr;
 
@@ -115,14 +117,15 @@ ImageNormalMap::updateUdimTexture()
             wrapT = moonray::shading::WrapType::Clamp;
         }
 
+        Vec3f defaultValue = get(attrDefaultValue);
         if (!mUdimTexture->update(this,
                                   sLogEventRegistry,
                                   get(attrTexture),
                                   ispc::TEXTURE_GAMMA_OFF,
                                   wrapS,
                                   wrapT,
-                                  false,                        // use default color
-                                  sBlack,                       // default color
+                                  get(attrUseDefaultValue),
+                                  Color(defaultValue.x, defaultValue.y, defaultValue.z),
                                   asCpp(mIspc.mFatalColor),
                                   errorStr)) {
             fatal(errorStr);

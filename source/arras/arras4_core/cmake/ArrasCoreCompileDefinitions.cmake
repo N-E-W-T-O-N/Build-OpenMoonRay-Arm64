@@ -24,7 +24,7 @@ function(ArrasCore_cxx_compile_definitions target)
 
         PUBLIC
             ${GLOBAL_COMPILE_DEFINITIONS}
-            __AVX__
+            ${GLOBAL_CPP_FLAGS}     # __AVX__ on x86-64, __ARM_NEON__ on aarch64 (was hardcoded __AVX__)
             GL_GLEXT_PROTOTYPES=1                   # This define makes function symbols to be available as extern declarations.
             TBB_SUPPRESS_DEPRECATED_MESSAGES        # Suppress 'deprecated' messages from TBB
     )

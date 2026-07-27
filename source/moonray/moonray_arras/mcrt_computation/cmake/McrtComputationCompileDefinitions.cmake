@@ -2,6 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 function(${PROJECT_NAME}_cxx_compile_definitions target)
+    # ProgMcrtMergeComputation has TBB_ONEAPI code paths (task_scheduler_init was
+    # removed in oneTBB 2021+) but this define was never wired up here, unlike
+    # moonray/MoonrayCompileDefinitions.cmake which it mirrors.
+    if(DEFINED TBB_VERSION AND TBB_VERSION VERSION_GREATER_EQUAL "2021.0")
+        set(tbb_oneapi TBB_ONEAPI)
+    endif()
+
     target_compile_definitions(${target}
         PRIVATE
             $<$<CONFIG:DEBUG>:
@@ -16,6 +23,7 @@ function(${PROJECT_NAME}_cxx_compile_definitions target)
 
         PUBLIC
             ${GLOBAL_COMPILE_DEFINITIONS}
+            ${tbb_oneapi}                           # define TBB_ONEAPI if TBB version >= 2021.0
             GL_GLEXT_PROTOTYPES=1                   # This define makes function symbols to be available as extern declarations.
             TBB_SUPPRESS_DEPRECATED_MESSAGES        # Suppress 'deprecated' messages from TBB
     )

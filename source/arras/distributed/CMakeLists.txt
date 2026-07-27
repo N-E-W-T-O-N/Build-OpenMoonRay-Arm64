@@ -20,8 +20,13 @@ find_package(Boost REQUIRED
             chrono
             date_time
             filesystem
-            program_options
-            system)
+            program_options)
+# Boost.System: header-only since 1.69, component removed in Boost >= 1.89
+if(NOT TARGET Boost::system)
+    add_library(Boost::system INTERFACE IMPORTED)
+    set_target_properties(Boost::system PROPERTIES
+        INTERFACE_LINK_LIBRARIES Boost::headers)
+endif()
 
 # if we aren't building ArrasCore, get it from the release
 if (NOT Building_ArrasCore)

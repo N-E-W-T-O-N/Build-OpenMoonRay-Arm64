@@ -1,4 +1,4 @@
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #include "GuiTypes.h"
@@ -17,6 +17,7 @@ std::string getActionName(const Action action) {
     case ACTION_CAM_SPEED_UP:                   return "Camera Speed Up";
     case ACTION_CAM_RESET:                      return "Camera Reset";
     case ACTION_CAM_RECENTER:                   return "Camera Recenter";
+    case ACTION_CAM_FRAME_SCENE:                return "Camera Frame Scene";
     case ACTION_CAM_PRINT_MATRICES:             return "Camera Print Matrices";
     case ACTION_CAM_SET_UP_VECTOR:              return "Camera Set Up Vector";
     case ACTION_CAM_ROTATE:                     return "Camera Rotation";
@@ -56,13 +57,81 @@ std::string getActionName(const Action action) {
     case ACTION_WINDOW_TOGGLE_PIXEL_INSPECTOR:  return "Window Toggle Pixel Inspector";
     case ACTION_WINDOW_TOGGLE_SNAPSHOT:         return "Window Toggle Snapshot";
     case ACTION_WINDOW_TOGGLE_STATUS:           return "Window Toggle Status";
+    case ACTION_WINDOW_TOGGLE_AXIS_DISPLAY:     return "Window Toggle Axis Display";
     case ACTION_SAVE_IMAGE:                     return "Save Image";
     case ACTION_PICK_PATH_VISUALIZER_PIXEL:     return "Pick Path Visualizer Pixel";
+    case ACTION_PATH_VISUALIZER_ON_OFF:         return "Turn Path Visualizer On/Off";
+    case ACTION_PATH_VISUALIZER_PREV_NODE:      return "Path Visualizer Previous Node";
+    case ACTION_PATH_VISUALIZER_NEXT_NODE:      return "Path Visualizer Next Node";
     case ACTION_CAM_TOGGLE_ACTIVE_TYPE:         return "Camera Toggle Active Type";
     case ACTION_TILE_PROGRESS_TOGGLE:           return "Tile Progress Toggle";
     case ACTION_RENDER_OUTPUT_PREV:             return "Render Output Previous";
     case ACTION_RENDER_OUTPUT_NEXT:             return "Render Output Next";
     case ACTION_PRINT_KEY_BINDINGS:             return "Print Key Bindings";
+    default:                                    return "";
+    }
+}
+
+// Gets the description of the action for display in the UI (help window)
+std::string getDescription(const Action action) {
+    switch (action) {
+    case ACTION_CAM_FORWARD:                    return "Move forward";
+    case ACTION_CAM_BACKWARD:                   return "Move backward";
+    case ACTION_CAM_LEFT:                       return "Move left";
+    case ACTION_CAM_RIGHT:                      return "Move right";
+    case ACTION_CAM_UP:                         return "Move up";
+    case ACTION_CAM_DOWN:                       return "Move down";
+    case ACTION_CAM_SLOW_DOWN:                  return "Reduce movement speed";
+    case ACTION_CAM_SPEED_UP:                   return "Increase movement speed";
+    case ACTION_CAM_RESET:                      return "Reset camera to initial position and orientation";
+    case ACTION_CAM_RECENTER:                   return "Recenter camera on point of interest";
+    case ACTION_CAM_FRAME_SCENE:                return "Reorient and zoom camera to frame the entire scene";
+    case ACTION_CAM_PRINT_MATRICES:             return "Print camera matrix to console";
+    case ACTION_CAM_SET_UP_VECTOR:              return "Set camera upright (remove roll)";
+    case ACTION_CAM_ROTATE:                     return "Rotate camera based on mouse movement";
+    case ACTION_CAM_DOLLY:                      return "Dolly/zoom camera based on mouse movement";
+    case ACTION_CAM_TRACK:                      return "Track camera based on mouse movement";
+    case ACTION_CAM_ROLL:                       return "Roll camera based on mouse movement";
+    case ACTION_IMAGE2D_PAN:                    return "Pan the image";
+    case ACTION_IMAGE2D_ZOOM:                   return "Zoom the image in/out";
+    case ACTION_DENOISE_TOGGLE_ON_OFF:          return "Toggle denoising on/off";
+    case ACTION_DENOISE_TOGGLE_MODE:            return "Toggle denoising mode (optix, open image denoise, etc.)";
+    case ACTION_DENOISE_SELECT_BUFFERS:         return "Select denoising buffers (beauty, albedo, normal, etc.)";
+    case ACTION_SNAPSHOT_TAKE:                  return "Take a snapshot and save to the given snap_path (command line argument)";
+    case ACTION_SNAPSHOT_PREV:                  return "Show previous snapshot";
+    case ACTION_SNAPSHOT_NEXT:                  return "Show next snapshot";
+    case ACTION_CHANNEL_TOGGLE_RGB:             return "Full RGB color";
+    case ACTION_CHANNEL_TOGGLE_RED:             return "Red channel only";
+    case ACTION_CHANNEL_TOGGLE_GREEN:           return "Green channel only";
+    case ACTION_CHANNEL_TOGGLE_BLUE:            return "Blue channel only";
+    case ACTION_CHANNEL_TOGGLE_ALPHA:           return "Alpha channel only";
+    case ACTION_CHANNEL_TOGGLE_LUMINANCE:       return "Luminance channel only";
+    case ACTION_CHANNEL_TOGGLE_RGB_NORMALIZED:  return "RGB Normalized channel only";
+    case ACTION_CHANNEL_TOGGLE_NUM_SAMPLES:     return "Samples per pixel (SPP) view";
+    case ACTION_EXPOSURE_INCREASE:              return "Increase exposure";
+    case ACTION_EXPOSURE_DECREASE:              return "Decrease exposure";
+    case ACTION_EXPOSURE_ADJUST:                return "Adjust exposure with mouse drag";
+    case ACTION_EXPOSURE_RESET:                 return "Reset exposure";
+    case ACTION_GAMMA_ADJUST:                   return "Adjust gamma with mouse drag";
+    case ACTION_GAMMA_RESET:                    return "Reset gamma";
+    case ACTION_FAST_PROGRESSIVE_TOGGLE:        return "Toggle fast progressive rendering on/off";
+    case ACTION_FAST_PROGRESSIVE_NEXT_MODE:     return "Next fast progressive rendering mode";
+    case ACTION_FAST_PROGRESSIVE_PREV_MODE:     return "Previous fast progressive rendering mode";
+    case ACTION_WINDOW_TOGGLE_EXPOSURE:         return "Open/close exposure adjustment window";
+    case ACTION_WINDOW_TOGGLE_GAMMA:            return "Open/close gamma adjustment window";
+    case ACTION_WINDOW_TOGGLE_KEY_BINDINGS:     return "Open/close key bindings window";
+    case ACTION_WINDOW_TOGGLE_SCENE_INSPECTOR:  return "Open/close scene inspector window";
+    case ACTION_WINDOW_TOGGLE_PATH_VISUALIZER:  return "Open/close path visualizer window";
+    case ACTION_WINDOW_TOGGLE_PIXEL_INSPECTOR:  return "Open/close pixel inspector window";
+    case ACTION_WINDOW_TOGGLE_SNAPSHOT:         return "Open/close snapshot window";
+    case ACTION_WINDOW_TOGGLE_STATUS:           return "Open/close status bar";
+    case ACTION_SAVE_IMAGE:                     return "Save image";
+    case ACTION_PICK_PATH_VISUALIZER_PIXEL:     return "Select pixel under mouse cursor for path visualization";
+    case ACTION_CAM_TOGGLE_ACTIVE_TYPE:         return "Toggle active camera type (orbit/freecam)";
+    case ACTION_TILE_PROGRESS_TOGGLE:           return "Turn tile progress visualization on/off";
+    case ACTION_RENDER_OUTPUT_PREV:             return "Show previous render output";
+    case ACTION_RENDER_OUTPUT_NEXT:             return "Show next render output";
+    case ACTION_PRINT_KEY_BINDINGS:             return "Print key bindings to console";
     default:                                    return "";
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2023-2024 DreamWorks Animation LLC
+// Copyright 2023-2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 
@@ -15,6 +15,7 @@
 #include <scene_rdl2/common/math/Vec2.h>
 #include <scene_rdl2/common/math/Vec3.h>
 #include <scene_rdl2/common/math/Vec4.h>
+#include <scene_rdl2/common/math/Mat3.h>
 #include <scene_rdl2/common/math/Mat4.h>
 #include <scene_rdl2/common/platform/Intrinsics.h>
 #include <scene_rdl2/render/util/Alloc.h>
@@ -52,9 +53,16 @@ namespace rdl2 {
 // you can freely cast rdl2::Tv to moonray::shading::Tv
 class Bsdfv;        // moonray::shading::Bsdfv;
 class BsdfBuilderv; // moonray::shading::BsdfBuilderv;
+class Boolv;        // moonray::shading::Boolv;
+class Intv;         // moonray::shading::Intv;
+class Stringv;      // moonray::shading::Stringv;
 class Colorv;       // moonray::shading::Colorv;
-class Statev;       // moonray::shading::Statev;
+class Rgbav;        // moonray::shading::Rgbav;
 class Vec3fv;       // moonray::shading::Vec3fv;
+class Vec4fv;       // moonray::shading::Vec4fv;
+class Mat3fv;       // moonray::shading::Mat3fv;
+class Mat4fv;       // moonray::shading::Mat4fv;
+class Statev;       // moonray::shading::Statev;
 
 struct DisplayFilterStatev; // displayfilter::DisplayFilterStatev;
 struct DisplayFilterInputBufferv; // displayfilter::InputBuffer;
@@ -117,6 +125,8 @@ typedef math::Vec3<float>               Vec3f; // 3D single precision
 typedef math::Vec3<double>              Vec3d; // 3D double precision
 typedef math::Vec4<float>               Vec4f; // 4D single precision
 typedef math::Vec4<double>              Vec4d; // 4D double precision
+typedef math::Mat3<math::Vec3<float> >  Mat3f; // 3x3 single precision
+typedef math::Mat3<math::Vec3<double> > Mat3d; // 3x3 double precision
 typedef math::Mat4<math::Vec4<float> >  Mat4f; // 4x4 single precision
 typedef math::Mat4<math::Vec4<double> > Mat4d; // 4x4 double precision
 
@@ -136,6 +146,8 @@ typedef std::vector<Vec3f>        Vec3fVector;
 typedef std::vector<Vec3d>        Vec3dVector;
 typedef std::vector<Vec4f>        Vec4fVector;
 typedef std::vector<Vec4d>        Vec4dVector;
+typedef std::vector<Mat3f>        Mat3fVector;
+typedef std::vector<Mat3d>        Mat3dVector;
 typedef std::vector<Mat4f>        Mat4fVector;
 typedef std::vector<Mat4d>        Mat4dVector;
 typedef std::vector<SceneObject*> SceneObjectVector;
@@ -185,6 +197,10 @@ enum AttributeType
     TYPE_MAT4D_VECTOR,        // Mat4dVector
     TYPE_SCENE_OBJECT_VECTOR, // SceneObjectVector (vector of pointers)
     TYPE_SCENE_OBJECT_INDEXABLE, // SceneObjectIndexable (vector of pointers)
+    TYPE_MAT3F,               // Mat3f
+    TYPE_MAT3D,               // Mat3d
+    TYPE_MAT3F_VECTOR,        // Mat3fVector
+    TYPE_MAT3D_VECTOR,        // Mat3dVector
 };
 
 /**
@@ -254,8 +270,13 @@ T convertFromString(std::string value);
  *
  * The "filename" flag indicates that this attribute represents a filename.
  *
- * The "no_geom_reload" flag indicates that an attribute update would not cause
+ * The "can_skip_geom_reload" flag indicates that an attribute update would not cause
  * geometry to regenerate/tessellate/construct accelerator
+ *
+ * The "geom_reload_bvh_only" flag indicates that an attribute update does not cause
+ * geometry to regenerate/tessellate, but does still require the acceleration
+ * structure (BVH) to be rebuilt (e.g. the per-ray-type visibility flags, which
+ * are baked into the BVH ray mask).
  */
 enum AttributeFlags
 {
@@ -264,7 +285,8 @@ enum AttributeFlags
     FLAGS_BLURRABLE      = 1 << 1,
     FLAGS_ENUMERABLE     = 1 << 2,
     FLAGS_FILENAME       = 1 << 3,
-    FLAGS_CAN_SKIP_GEOM_RELOAD = 1 << 4
+    FLAGS_CAN_SKIP_GEOM_RELOAD = 1 << 4,
+    FLAGS_GEOM_RELOAD_BVH_ONLY = 1 << 5
 };
 
 RDL2_DEFINE_BITFLAG_OPERATORS(AttributeFlags);
@@ -381,6 +403,8 @@ template <> AttributeType constexpr attributeType<Vec3f>()             { return 
 template <> AttributeType constexpr attributeType<Vec3d>()             { return TYPE_VEC3D; }
 template <> AttributeType constexpr attributeType<Vec4f>()             { return TYPE_VEC4F; }
 template <> AttributeType constexpr attributeType<Vec4d>()             { return TYPE_VEC4D; }
+template <> AttributeType constexpr attributeType<Mat3f>()             { return TYPE_MAT3F; }
+template <> AttributeType constexpr attributeType<Mat3d>()             { return TYPE_MAT3D; }
 template <> AttributeType constexpr attributeType<Mat4f>()             { return TYPE_MAT4F; }
 template <> AttributeType constexpr attributeType<Mat4d>()             { return TYPE_MAT4D; }
 template <> AttributeType constexpr attributeType<SceneObject*>()      { return TYPE_SCENE_OBJECT; }
@@ -398,6 +422,8 @@ template <> AttributeType constexpr attributeType<Vec3fVector>()       { return 
 template <> AttributeType constexpr attributeType<Vec3dVector>()       { return TYPE_VEC3D_VECTOR; }
 template <> AttributeType constexpr attributeType<Vec4fVector>()       { return TYPE_VEC4F_VECTOR; }
 template <> AttributeType constexpr attributeType<Vec4dVector>()       { return TYPE_VEC4D_VECTOR; }
+template <> AttributeType constexpr attributeType<Mat3fVector>()       { return TYPE_MAT3F_VECTOR; }
+template <> AttributeType constexpr attributeType<Mat3dVector>()       { return TYPE_MAT3D_VECTOR; }
 template <> AttributeType constexpr attributeType<Mat4fVector>()       { return TYPE_MAT4F_VECTOR; }
 template <> AttributeType constexpr attributeType<Mat4dVector>()       { return TYPE_MAT4D_VECTOR; }
 template <> AttributeType constexpr attributeType<SceneObjectVector>() { return TYPE_SCENE_OBJECT_VECTOR; }
@@ -502,11 +528,6 @@ typedef void (__cdecl * ShadeFunc)(     const rdl2::Material* self,
                                         const moonray::shading::State& state,
                                         moonray::shading::BsdfBuilder& bsdfBuilder);
 
-typedef void (__cdecl * SampleFunc)(    const Map* self,
-                                        moonray::shading::TLState *tls,
-                                        const moonray::shading::State& state,
-                                        math::Color* sample);
-
 typedef void (__cdecl * SampleNormalFunc)(    const NormalMap* self,
                                               moonray::shading::TLState *tls,
                                               const moonray::shading::State& state,
@@ -534,6 +555,50 @@ typedef math::Vec3f (__cdecl * EvalVec3fFunc)( const rdl2::Material* material,
 
 typedef EvalVec3fFunc EvalNormalFunc;
 
+//
+// Map has many sample() functions due to returning different types
+//
+typedef void (__cdecl * SampleFunc)(    const Map* self,
+                                        moonray::shading::TLState *tls,
+                                        const moonray::shading::State& state,
+                                        math::Color* sample);
+
+typedef void (__cdecl * SampleFuncBool)(const Map* self,
+                                        moonray::shading::TLState *tls,
+                                        const moonray::shading::State& state,
+                                        Bool* sample);
+
+typedef void (__cdecl * SampleFuncInt)(const Map* self,
+                                       moonray::shading::TLState *tls,
+                                       const moonray::shading::State& state,
+                                       Int* sample);
+
+typedef void (__cdecl * SampleFuncVec4f)(const Map* self,
+                                        moonray::shading::TLState *tls,
+                                        const moonray::shading::State& state,
+                                        Vec4f* sample);
+
+typedef void (__cdecl * SampleFuncRgba)(const Map* self,
+                                        moonray::shading::TLState *tls,
+                                        const moonray::shading::State& state,
+                                        Rgba* sample);
+
+typedef void (__cdecl * SampleFuncMat3f)(const Map* self,
+                                         moonray::shading::TLState *tls,
+                                         const moonray::shading::State& state,
+                                         Mat3f* sample);
+
+typedef void (__cdecl * SampleFuncMat4f)(const Map* self,
+                                         moonray::shading::TLState *tls,
+                                         const moonray::shading::State& state,
+                                         math::Mat4f* sample);
+
+typedef void (__cdecl * SampleFuncSceneObject)(const Map* self,
+                                               moonray::shading::TLState *tls,
+                                               const moonray::shading::State& state,
+                                               SceneObject* * );
+
+
 /**
  * Varying functions. Implicit masks are passed in since we're actually calling
  * non-exported ISPC functions directly. These always assume a mask as the
@@ -544,12 +609,6 @@ typedef void (__cdecl * ShadeFuncv)(    const rdl2::Material* self,
                                         unsigned numStatev,
                                         const rdl2::Statev* state,
                                         rdl2::BsdfBuilderv* bsdfBuilderv,
-                                        SIMD_MASK_TYPE implicitMask);
-
-typedef void (__cdecl * SampleFuncv)(   const Map* self,
-                                        moonray::shading::TLState *tls,
-                                        const rdl2::Statev* state,
-                                        rdl2::Colorv* sample,
                                         SIMD_MASK_TYPE implicitMask);
 
 typedef void (__cdecl * SampleNormalFuncv)(   const NormalMap* self,
@@ -571,6 +630,56 @@ typedef void (__cdecl * DisplayFilterFuncv)(const DisplayFilter* self,
                                             rdl2::Colorv* output,
                                             SIMD_MASK_TYPE implicitMask);
 
+//
+// Map has many samplev() functions due to returning different types
+//
+typedef void (__cdecl * SampleFuncv)(   const Map* self,
+                                        moonray::shading::TLState *tls,
+                                        const rdl2::Statev* state,
+                                        rdl2::Colorv* sample,
+                                        SIMD_MASK_TYPE implicitMask);
+
+typedef void (__cdecl * SampleFuncvBool)(const Map* self,
+                                         moonray::shading::TLState *tls,
+                                         const rdl2::Statev* state,
+                                         rdl2::Boolv* sample,
+                                         SIMD_MASK_TYPE implicitMask);
+
+typedef void (__cdecl * SampleFuncvInt)(const Map* self,
+                                         moonray::shading::TLState *tls,
+                                         const rdl2::Statev* state,
+                                         rdl2::Intv* sample,
+                                         SIMD_MASK_TYPE implicitMask);
+
+typedef void (__cdecl * SampleFuncvVec4f)(const Map* self,
+                                         moonray::shading::TLState *tls,
+                                         const rdl2::Statev* state,
+                                         rdl2::Vec4fv* sample,
+                                         SIMD_MASK_TYPE implicitMask);
+
+typedef void (__cdecl * SampleFuncvRgba)(const Map* self,
+                                         moonray::shading::TLState *tls,
+                                         const rdl2::Statev* state,
+                                         rdl2::Rgbav* sample,
+                                         SIMD_MASK_TYPE implicitMask);
+
+typedef void (__cdecl * SampleFuncvMat3f)(const Map* self,
+                                          moonray::shading::TLState *tls,
+                                          const rdl2::Statev* state,
+                                          rdl2::Mat3fv* sample,
+                                          SIMD_MASK_TYPE implicitMask);
+
+typedef void (__cdecl * SampleFuncvMat4f)(const Map* self,
+                                          moonray::shading::TLState *tls,
+                                          const rdl2::Statev* state,
+                                          rdl2::Mat4fv* sample,
+                                          SIMD_MASK_TYPE implicitMask);
+
+typedef void (__cdecl * SampleFuncvSceneObject)(const Map* self,
+                                                moonray::shading::TLState *tls,
+                                                const rdl2::Statev* state,
+                                                SceneObject** sample,
+                                          SIMD_MASK_TYPE implicitMask);
 
 } // namespace rdl2
 } // namespace scene_rdl2

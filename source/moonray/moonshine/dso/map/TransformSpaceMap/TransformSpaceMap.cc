@@ -244,8 +244,9 @@ localToRender(const moonray::shading::State& state,
     if (state.isProvided(dPdsKey)) {
         dPds = state.getAttribute(static_cast<moonray::shading::TypedAttributeKey<Vec3f>>(dPdsKey));
     }  else {
-        dPds = normalize(state.getdPds());
+        dPds = state.getdPds();
     }
+    dPds = normalize(dPds);
 
     const ReferenceFrame frame(normalize(curN), dPds);
 

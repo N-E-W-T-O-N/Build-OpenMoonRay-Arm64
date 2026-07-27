@@ -48,6 +48,14 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceParentDir}/../installs/openmoonray/Release"
             },
             "generator": "Xcode"
+        },
+        {
+            "name": "mactastic",
+            "displayName": "mactastic",
+            "inherits": "dwa-macos-release",
+            "environment": {
+                "DEPS_ROOT": "/Users/bart/actions-runner/_work/openmoonray/openmoonray/installs/"
+            }
         }
     ],
     "buildPresets": [
@@ -62,6 +70,13 @@
             "name": "dwa-macos-release",
             "displayName": "(DWA) macOS Release",
             "configurePreset": "dwa-macos-release",
+            "configuration": "Release",
+            "targets": ["install"]
+        },
+        {
+            "name": "mactastic",
+            "displayName": "mactastic",
+            "configurePreset": "mactastic",
             "configuration": "Release",
             "targets": ["install"]
         }

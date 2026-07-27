@@ -3,6 +3,8 @@
 #pragma once
 #include "NavigationCam.h"
 
+#include <functional> // std::function (GCC 15 no longer includes transitively)
+
 ///
 /// Controls:
 ///

@@ -125,7 +125,7 @@ DWABASE_resolveGlitterParams(const uniform DwaBase * uniform dwaBase,
             vParams.mFlakeSize[1] =
                 EVALFLOATATTR(dwaBase->mAttrFuncs.mEvalAttrGlitterSizeB, me, tls, state, 1.0f);
             vParams.mFlakeRoughness[1] =
-                GETFLOATATTR(dwaBase->mAttrFuncs.mGetAttrGlitterRoughnessA, me, tls, state, 0.14f);
+                GETFLOATATTR(dwaBase->mAttrFuncs.mGetAttrGlitterRoughnessB, me, tls, state, 0.14f);
         } else {
             vParams.mFlakeColor[1] = sBlack;
             vParams.mFlakeSize[1] = 0.f;

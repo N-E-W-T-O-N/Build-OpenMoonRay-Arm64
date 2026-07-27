@@ -1,4 +1,4 @@
-// Copyright 2023-2025 DreamWorks Animation LLC
+// Copyright 2023-2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -20,6 +20,11 @@ namespace moonray_gui_v2 {
 class NavigationCam
 {
 public:
+    // The default camera view vector for framing the scene.
+    // Chosen arbitrarily to be a good angle for looking at the scene when framed.
+    // Note that the vector is only approximately normalized, which is sufficient for our purposes.
+    inline static const scene_rdl2::math::Vec3f FRAME_CAM_VIEW{0.57735f, -0.57735f, 0.57735f};
+
                          NavigationCam() {}
     virtual             ~NavigationCam() {}
 

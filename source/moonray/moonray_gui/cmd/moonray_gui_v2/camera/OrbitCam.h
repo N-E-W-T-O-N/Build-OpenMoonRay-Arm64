@@ -1,4 +1,4 @@
-// Copyright 2023-2025 DreamWorks Animation LLC
+// Copyright 2023-2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -42,8 +42,14 @@ private:
 
     // Recenter the camera on the chosen focus point
     void                recenterCamera();
+
     // Reset the camera to its initial state
     void                resetCamera();
+
+    // Frame the scene by adjusting the camera position and orientation to fit the entire scene within the view.
+    // This is a best effort based on the scene bounds and may not account for all camera projection 
+    // parameters (e.g. FOV, aspect ratio, near plane, etc).
+    void                frameScene();
 
     bool                pick(const int x, const int y, scene_rdl2::math::Vec3f* hitPoint) const;
     scene_rdl2::math::Mat4f  makeCameraMatrix(const Camera& camera) const;

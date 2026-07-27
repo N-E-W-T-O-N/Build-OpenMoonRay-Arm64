@@ -1,4 +1,4 @@
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -8,7 +8,10 @@
 #include <scene_rdl2/common/fb_util/FbTypes.h>
 
 #include <GLFW/glfw3.h>
+#include <map>
+#include <set>
 #include <string>
+#include <vector>
 
 using namespace scene_rdl2;
 
@@ -72,6 +75,7 @@ enum Action
     ACTION_CAM_SPEED_UP,
     ACTION_CAM_RESET,
     ACTION_CAM_RECENTER,
+    ACTION_CAM_FRAME_SCENE,
     ACTION_CAM_PRINT_MATRICES,
     ACTION_CAM_SET_UP_VECTOR,
     ACTION_CAM_ROTATE,
@@ -120,6 +124,7 @@ enum Action
     ACTION_WINDOW_TOGGLE_PIXEL_INSPECTOR,
     ACTION_WINDOW_TOGGLE_SNAPSHOT,
     ACTION_WINDOW_TOGGLE_STATUS,
+    ACTION_WINDOW_TOGGLE_AXIS_DISPLAY,
 
     // Output actions
     ACTION_RENDER_OUTPUT_PREV,
@@ -129,8 +134,13 @@ enum Action
     ACTION_SNAPSHOT_PREV,
     ACTION_SNAPSHOT_NEXT,
 
-    // Misc actions
+    // Path visualizer actions
     ACTION_PICK_PATH_VISUALIZER_PIXEL,
+    ACTION_PATH_VISUALIZER_ON_OFF,
+    ACTION_PATH_VISUALIZER_PREV_NODE,
+    ACTION_PATH_VISUALIZER_NEXT_NODE,
+
+    // Misc actions
     ACTION_TILE_PROGRESS_TOGGLE,
     ACTION_PRINT_KEY_BINDINGS,
 
@@ -189,8 +199,113 @@ constexpr KeyMapping KEY_MAPPINGS[] = {
     {ImGuiKey_F10, GLFW_KEY_F10}, {ImGuiKey_F11, GLFW_KEY_F11}, {ImGuiKey_F12, GLFW_KEY_F12}
 };
 
+// Action category structure for organizing hotkeys in UI
+struct ActionCategory {
+    const char* name;
+    const std::set<Action> actions;
+};
+
+// Centralized action categorization for use in KeyBindingsWindow and HelpWindow
+// Maps category names to their associated actions for easy retrieval
+inline const std::map<std::string, std::set<Action>> ACTION_CATEGORIES = {
+    {"General Camera Controls", {
+        ACTION_CAM_TOGGLE_ACTIVE_TYPE,
+        ACTION_CAM_RESET,
+        ACTION_CAM_RECENTER,
+        ACTION_CAM_FRAME_SCENE,
+        ACTION_CAM_PRINT_MATRICES,
+        ACTION_CAM_SET_UP_VECTOR
+    }},
+    
+    {"Camera Movement Keys", {
+        ACTION_CAM_FORWARD,
+        ACTION_CAM_BACKWARD,
+        ACTION_CAM_LEFT,
+        ACTION_CAM_RIGHT,
+        ACTION_CAM_UP,
+        ACTION_CAM_DOWN,
+        ACTION_CAM_SLOW_DOWN,
+        ACTION_CAM_SPEED_UP
+    }},
+    
+    {"Camera Mouse Controls", {
+        ACTION_CAM_ROTATE,
+        ACTION_CAM_DOLLY,
+        ACTION_CAM_TRACK,
+        ACTION_CAM_ROLL
+    }},
+    
+    {"Exposure Controls", {
+        ACTION_WINDOW_TOGGLE_EXPOSURE,
+        ACTION_EXPOSURE_INCREASE,
+        ACTION_EXPOSURE_DECREASE,
+        ACTION_EXPOSURE_ADJUST,
+        ACTION_EXPOSURE_RESET
+    }},
+    
+    {"Gamma Controls", {
+        ACTION_WINDOW_TOGGLE_GAMMA,
+        ACTION_GAMMA_ADJUST,
+        ACTION_GAMMA_RESET
+    }},
+    
+    {"Denoising", {
+        ACTION_DENOISE_TOGGLE_ON_OFF,
+        ACTION_DENOISE_TOGGLE_MODE,
+        ACTION_DENOISE_SELECT_BUFFERS
+    }},
+    
+    {"Fast Progressive", {
+        ACTION_FAST_PROGRESSIVE_TOGGLE,
+        ACTION_FAST_PROGRESSIVE_NEXT_MODE,
+        ACTION_FAST_PROGRESSIVE_PREV_MODE
+    }},
+    
+    {"Path Visualizer", {
+        ACTION_WINDOW_TOGGLE_PATH_VISUALIZER,
+        ACTION_PICK_PATH_VISUALIZER_PIXEL
+    }},
+    
+    {"Output", {
+        ACTION_SAVE_IMAGE,
+        ACTION_RENDER_OUTPUT_PREV,
+        ACTION_RENDER_OUTPUT_NEXT,
+        ACTION_SNAPSHOT_TAKE,
+        ACTION_SNAPSHOT_PREV,
+        ACTION_SNAPSHOT_NEXT
+    }},
+    
+    {"Image Controls", {
+        ACTION_IMAGE2D_PAN,
+        ACTION_IMAGE2D_ZOOM,
+        ACTION_TILE_PROGRESS_TOGGLE
+    }},
+    
+    {"Window Toggles", {
+        ACTION_WINDOW_TOGGLE_KEY_BINDINGS,
+        ACTION_WINDOW_TOGGLE_PIXEL_INSPECTOR,
+        ACTION_WINDOW_TOGGLE_SCENE_INSPECTOR,
+        ACTION_WINDOW_TOGGLE_SNAPSHOT,
+        ACTION_WINDOW_TOGGLE_STATUS
+    }},
+    
+    {"Channels", {
+        ACTION_CHANNEL_TOGGLE_RGB,
+        ACTION_CHANNEL_TOGGLE_RED,
+        ACTION_CHANNEL_TOGGLE_GREEN,
+        ACTION_CHANNEL_TOGGLE_BLUE,
+        ACTION_CHANNEL_TOGGLE_ALPHA,
+        ACTION_CHANNEL_TOGGLE_LUMINANCE,
+        ACTION_CHANNEL_TOGGLE_RGB_NORMALIZED,
+        ACTION_CHANNEL_TOGGLE_NUM_SAMPLES
+    }}
+};
+
 // Get the human-readable action name
 std::string getActionName(const Action action);
+
+// Get the human-readable action description
+std::string getDescription(const Action action);
 
 // Get the human-readable key name
 std::string getKeyName(const int& glfwKey);

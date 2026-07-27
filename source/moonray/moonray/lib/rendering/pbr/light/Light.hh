@@ -107,6 +107,11 @@ enum LightSidednessType
                                                                             \
     HUD_MEMBER(HUD_NAMESPACE(scene_rdl2::math, Color), mRadiance);                      \
                                                                             \
+    /* Color used in place of the texture when a texture was specified but */ \
+    /* failed to load. Defaults to white (a no-op multiplier); set to the */ \
+    /* fatal color on load failure so the missing texture is visible. */    \
+    HUD_MEMBER(HUD_NAMESPACE(scene_rdl2::math, Color), mTextureFallbackColor); \
+                                                                            \
     /* TODO: this should be a shared resource */                            \
     HUD_PTR(ImageDistribution *, mDistribution);                            \
     HUD_CPP_MEMBER(Distribution2D::Mapping, mDistributionMapping, 4);       \
@@ -150,6 +155,7 @@ enum LightSidednessType
     HUD_VALIDATE(Light, mOrientation);                  \
     HUD_VALIDATE(Light, mDirection);                    \
     HUD_VALIDATE(Light, mRadiance);                     \
+    HUD_VALIDATE(Light, mTextureFallbackColor);         \
     HUD_VALIDATE(Light, mDistribution);                 \
     HUD_VALIDATE(Light, mDistributionMapping);          \
     HUD_VALIDATE(Light, mLabelId);                      \
@@ -255,21 +261,26 @@ enum LightSidednessType
 
 #define DISTANT_LIGHT_MEMBERS                                            \
     /* The Sun is typically 0.53 degrees */                              \
-    HUD_MEMBER(float, mAngularExtent);                                   \
-                                                                         \
     HUD_MEMBER(HUD_NAMESPACE(scene_rdl2::math, ReferenceFrame), mFrame); \
     HUD_MEMBER(float, mCullThreshold);                                   \
     HUD_MEMBER(float, mCosThetaMax);                                     \
-    HUD_MEMBER(float, mVersineThetaMax)
+    HUD_MEMBER(float, mVersineThetaMax);                                 \
+    HUD_MEMBER(float, mJacobian);                                        \
+    HUD_MEMBER(float, mLog2TexelAngle);                                  \
+    HUD_MEMBER(float, mLocalToUvConst);                                  \
+    HUD_MEMBER(float, mUvToLocalConst)
 
 
 #define DISTANT_LIGHT_VALIDATION                    \
     HUD_BEGIN_VALIDATION(DistantLight);             \
-    HUD_VALIDATE(DistantLight, mAngularExtent);     \
     HUD_VALIDATE(DistantLight, mFrame);             \
     HUD_VALIDATE(DistantLight, mCullThreshold);     \
     HUD_VALIDATE(DistantLight, mCosThetaMax);       \
     HUD_VALIDATE(DistantLight, mVersineThetaMax);   \
+    HUD_VALIDATE(DistantLight, mJacobian);          \
+    HUD_VALIDATE(DistantLight, mLog2TexelAngle);    \
+    HUD_VALIDATE(DistantLight, mLocalToUvConst);    \
+    HUD_VALIDATE(DistantLight, mUvToLocalConst);    \
     HUD_END_VALIDATION
 
 

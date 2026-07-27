@@ -329,11 +329,14 @@ computeActiveLights(scene_rdl2::alloc::Arena *arena,
                     float rayTime,
                     // outputs
                     LightSet &lightSet,
-                    bool &hasRayTerminatorLights,
                     const Rdl2LightSetList& parentLobeLightSets);
 
 // Randomly choose a light based on how many lights have been hit so far
 bool chooseThisLight(const IntegratorSample1D &samples, int depth, unsigned int numHits);
+
+// Determine whether a light should be considered active (i.e. intersected against)
+bool isLightActive(const Light* light, const int visibilityMask, const bool includeRayTerminationLights,
+                   const scene_rdl2::rdl2::LightSet* bsdfLobeLightSet, const Rdl2LightSetList* parentLobeLightSets);
 
 //----------------------------------------------------------------------------
 
@@ -352,7 +355,9 @@ struct LightIntersectContext {
         mSamples(nullptr),
         mDepth(nullptr),
         mNumHits(nullptr),
-        mLightIdMap(nullptr)
+        mLightIdMap(nullptr),
+        mBsdfLobeLightSet(nullptr),
+        mParentLobeLightSets(nullptr)
     {
         rtcInitRayQueryContext(&mRtcContext);
     }
@@ -371,6 +376,8 @@ struct LightIntersectContext {
     int* mDepth;
     int* mNumHits;
     const int* mLightIdMap;
+    const intptr_t* mBsdfLobeLightSet;
+    const Rdl2LightSetList* mParentLobeLightSets;
 };
 
 struct LightOccludeContext {

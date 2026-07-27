@@ -1,4 +1,4 @@
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -20,7 +20,7 @@ public:
     ImageDisplay() {}
 
     // Draw the window to the screen
-    void draw(const Viewport* viewport, const int availWidth, const int availHeight);
+    void draw(const Viewport* viewport, int availWidth, int availHeight);
 
     // Get the coordinate for the image pixel 
     // underneath the mouse at the given position
@@ -30,7 +30,7 @@ public:
     // get the corresponding viewport coordinates. This is necessary 
     // for drawing overlays (like path visualizer lines) in the correct place,
     // since the image itself may be zoomed or panned.
-    ImVec2 imageToViewportCoords(const int pixelX, const int pixelY) const;
+    ImVec2 imageToViewportCoords(int pixelX, int pixelY) const;
 
     // Get the (unscaled) size of the image
     ImVec2 getImageSize() const { return mImageSize; }
@@ -39,13 +39,13 @@ public:
     ImVec2 getScaledSize() const { return ImVec2(mImageSize.x * mZoomScale, mImageSize.y * mZoomScale); }
 
     // Set the base image size (for resizing in the rdla)
-    void setImageSize(const int width, const int height) { mImageSize = ImVec2(width, height); }
+    void setImageSize(int width, int height) { mImageSize = ImVec2(width, height); }
 
     // Zoom in/out (i.e. increase/decrease the image scale)
-    void zoom(const int xoffset, const int yoffset);
+    void zoom(int xoffset, int yoffset);
 
     // Pan the image by the given offset
-    void pan(const int xoffset, const int yoffset);
+    void pan(int xoffset, int yoffset);
 
 private:
     // Define the window settings (size, position, style, etc)
@@ -59,11 +59,11 @@ private:
     /// @param w: width of the line
     /// @param drawEndPoint: whether to draw the end point of the line
     ///
-    void drawLine(const int x1, const int y1, const int x2, const int y2, const scene_rdl2::math::Color& color, 
-                  const float a, const float w, const bool drawEndPoint);
+    void drawLine(int x1, int y1, int x2, int y2, const scene_rdl2::math::Color& color, 
+                  float a, float w, bool drawEndPoint, bool selected, bool isSample, bool showEndpointsOnly);
 
     /// Draw all path visualizer lines
-    void drawPathVisualizerLines(moonray::rndr::PathVisualizerManager* manager);
+    void drawPathVisualizerLines(moonray::rndr::PathVisualizerManager* manager, bool showEndpointsOnly);
 
     ImVec2 mImageSize {ImVec2(0,0)};        // size of the image
     ImVec2 mPosition  {ImVec2(0,0)};        // position of the image in the viewport

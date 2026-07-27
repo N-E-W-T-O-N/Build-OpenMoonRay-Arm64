@@ -22,6 +22,15 @@ file(RELATIVE_PATH relBinDir ${PROJECT_SOURCE_DIR} ${crtBinDir})
 
 # TODO: actually check that the string produced by xxd matches the expectation. i.e. Test this beyond building it, which works
 # translate ".bin" source files to ".o" files
+# objcopy container format/arch must match the target (was hardcoded x86:
+# "architecture i386 unknown" on Linux aarch64) — same fix as pbr's sampler tables
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    set(crtObjcopyArch aarch64)
+    set(crtObjcopyTarget elf64-littleaarch64)
+else()
+    set(crtObjcopyArch i386)
+    set(crtObjcopyTarget elf64-x86-64)
+endif()
 foreach(crtFile ${crtFiles})
     if(IsDarwinPlatform)
         add_custom_command(
@@ -33,8 +42,8 @@ foreach(crtFile ${crtFiles})
             OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/${crtFile}.o
             DEPENDS ${crtBinDir}/${crtFile}.bin
             COMMAND cd ${PROJECT_SOURCE_DIR} &&
-                        objcopy --input-target=binary --binary-architecture=i386
-                        --output-target=elf64-x86-64
+                        objcopy --input-target=binary --binary-architecture=${crtObjcopyArch}
+                        --output-target=${crtObjcopyTarget}
                         "${relBinDir}/${crtFile}.bin"
                         "${CMAKE_CURRENT_BINARY_DIR}/${crtFile}.o")
     endif()

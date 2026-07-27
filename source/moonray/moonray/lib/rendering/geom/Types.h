@@ -31,6 +31,12 @@ namespace geom {
     typedef simd::ssef simdf;
     typedef simd::ssei simdi;
     typedef simd::sseb simdb;
+#elif defined(__aarch64__)
+    // Defensive: Platform.hh masquerades SSE macros on aarch64, but a TU can
+    // reach here with them undef'd (OIIO guard blocks). NEON => 4-wide SSE types.
+    typedef simd::ssef simdf;
+    typedef simd::ssei simdi;
+    typedef simd::sseb simdb;
 #endif
 
 typedef scene_rdl2::math::BBox3f    BBox3f;

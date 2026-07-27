@@ -433,6 +433,7 @@ RenderGui::setCameraXform(const Mat4f& c2w)
     camera->set(rdl2::Node::sNodeXformKey, toDouble(mC12C0 * c2w), rdl2::TIMESTEP_END);
     camera->endUpdate();
     mRenderContext->setSceneUpdated();
+    mViewport->setUpdateAxis(true);
 
     mLastCameraXform = c2w;
 }
@@ -640,6 +641,17 @@ moonray::rndr::FastRenderMode
 RenderGui::getFastRenderMode() const
 {
     return mViewport->getFastMode();
+}
+
+void
+RenderGui::setContext(moonray::rndr::RenderContext *ctx)
+{
+    mRenderContext = ctx;
+
+    if (mViewport) {
+        // Keep the viewport's RenderContext pointer in sync with the current context
+        mViewport->updateRenderContext(ctx);
+    }
 }
 
 

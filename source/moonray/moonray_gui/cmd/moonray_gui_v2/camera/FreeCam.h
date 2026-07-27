@@ -1,4 +1,4 @@
-// Copyright 2023-2025 DreamWorks Animation LLC
+// Copyright 2023-2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -17,6 +17,8 @@ public:
 
     scene_rdl2::math::Mat4f  update(const float dt) override;
 
+    void                setRenderContext(const moonray::rndr::RenderContext &context) override;
+
     /// Returns true if the input was used, false if ignored.
     bool                processKeyPressEvent(GLFWwindow* window, const Action action) override;
     bool                processKeyReleaseEvent(GLFWwindow* window, const Action action) override;
@@ -33,9 +35,16 @@ private:
     };
 
     // Reset camera to its initial state
-    void resetCamera();
+    void                resetCamera();
+
+    // Frame the scene by adjusting the camera position and orientation to fit the entire scene within the view.
+    // This is a best effort based on the scene bounds and may not account for all camera projection 
+    // parameters (e.g. FOV, aspect ratio, near plane, etc).
+    void                frameScene();
 
     void                printCameraMatrices() const;
+
+    const moonray::rndr::RenderContext *mRenderContext {nullptr};
 
     scene_rdl2::math::Vec3f  mPosition {0.0f, 0.0f, 0.0f};
     scene_rdl2::math::Vec3f  mVelocity {0.0f, 0.0f, 0.0f};

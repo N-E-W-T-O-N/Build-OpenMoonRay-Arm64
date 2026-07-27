@@ -14,7 +14,7 @@ def version():
     """
     Increment the build in the version.
     """
-    _version = '2.40'
+    _version = '3.6'
     from rezbuild import earlybind
     return earlybind.version(this, _version)
 
@@ -36,7 +36,8 @@ variants = [
         'usd_core-0.23.8.x',
         'openimageio-2.4.8.0.x',
         'gcc-11.x',
-        'openvdb-11',
+        # 'openvdb-11',
+        'openvdb-11.0.0.2', # temp fix to work around a package issue with openvdb-11.0.0.3
         'zlib-1.2.11.x'
     ],
     [   # variant 1
@@ -46,7 +47,8 @@ variants = [
         'usd_core-0.23.8.x',
         'openimageio-2.4.8.0.x',
         'gcc-11.x',
-        'openvdb-11',
+        # 'openvdb-11',
+        'openvdb-11.0.0.2', # temp fix to work around a package issue with openvdb-11.0.0.3
         'zlib-1.2.11.x'
     ],
     [   # variant 2
@@ -56,7 +58,8 @@ variants = [
         'usd_core-0.24.3.x',
         'openimageio-2.4.8.0.x',
         'gcc-11.x',
-        'openvdb-11',
+        # 'openvdb-11',
+        'openvdb-11.0.0.2', # temp fix to work around a package issue with openvdb-11.0.0.3
         'zlib-1.2.11.x'
     ],
     [   # variant 3
@@ -66,7 +69,8 @@ variants = [
         'usd_core-0.22.5.x',
         'openimageio-2.3.20.0.x',
         'gcc-11.x',
-        'openvdb-11',
+        # 'openvdb-11',
+        'openvdb-11.0.0.2', # temp fix to work around a package issue with openvdb-11.0.0.3
         'zlib-1.2.11.x'
     ],
     [   # variant 4
@@ -86,7 +90,8 @@ variants = [
         'usd_core-0.24.3.x',
         'openimageio-2.4.8.0.x',
         'gcc-11.x',
-        'openvdb-11',
+        # 'openvdb-11',
+        'openvdb-11.0.0.2', # temp fix to work around a package issue with openvdb-11.0.0.3
         'zlib-1.2.11.x'
     ],
     [   # variant 6
@@ -96,7 +101,8 @@ variants = [
         'usd_core-0.25.5.1.x',
         'openimageio-3.0',
         'gcc-11.x',
-        'openvdb-12',
+        # 'openvdb-12',
+        'openvdb-12.1.1.0', # temp fix to work around a package issue with openvdb-12.1.1.1
         'zlib-1.2.11.x'
     ],
     [   # variant 7
@@ -106,7 +112,8 @@ variants = [
         'usd_core-0.25.5.1.x',
         'openimageio-3.0',
         'gcc-11.x',
-        'openvdb-12',
+        # 'openvdb-12',
+        'openvdb-12.1.1.0', # temp fix to work around a package issue with openvdb-12.1.1.1
         'zlib-1.2.11.x'
     ],
     [   # variant 8

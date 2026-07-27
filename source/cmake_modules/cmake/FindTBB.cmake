@@ -46,6 +46,21 @@
 # We use INTERFACE libraries, which are only supported in 3.x
 cmake_minimum_required(VERSION 3.1)
 
+# oneTBB 2021+ installs its own CMake package config. Prefer it: if this module
+# hand-rolls TBB::* imported targets and a dependency (e.g. USD's pxrConfig)
+# later loads the official TBBConfig via find_dependency(TBB), TBBTargets.cmake
+# fatally errors with "Some (but not all) targets in this export set were
+# already defined". Delegating makes every consumer share one export set, and
+# re-loading the config is idempotent.
+find_package(TBB CONFIG QUIET)
+if(TBB_FOUND AND TARGET TBB::tbb)
+    if(NOT TBB_FIND_QUIETLY)
+        message(STATUS "FindTBB: using oneTBB package config (TBB ${TBB_VERSION}, ${TBB_DIR})")
+    endif()
+    get_target_property(TBB_INCLUDE_DIRS TBB::tbb INTERFACE_INCLUDE_DIRECTORIES)
+    return()
+endif()
+
 # These two are used to automatically find the root and include directories.
 set(_TBB_INCLUDE_SUBDIR "include")
 set(_TBB_HEADER "tbb/tbb.h")
@@ -353,15 +368,19 @@ function(rk_tbb_find_library COMPONENT_NAME BUILD_CONFIG)
     list(APPEND LIB_PATHS
       ${TBB_ROOT}/lib
       ${TBB_ROOT}/lib/x86_64-linux-gnu
+      ${TBB_ROOT}/lib/aarch64-linux-gnu
       ${TBB_ROOT}/lib64
-      ${TBB_ROOT}/libx86_64-linux-gnu)
+      ${TBB_ROOT}/libx86_64-linux-gnu
+      ${TBB_ROOT}/libaarch64-linux-gnu)
   endif()
 
   # We prefer finding the versioned file on Unix so that the library path
   # variable will not point to a symlink. This makes installing TBB as a
   # dependency easier.
   if (UNIX)
-    set(LIB_NAME lib${LIB_NAME}.so.2 ${LIB_NAME})
+    # Prefer the versioned soname: oneTBB 2021+ ships .so.12, TBB 2020 ships .so.2.
+    # List .so.12 first (we use oneTBB 2022.3) then fall back, then unversioned.
+    set(LIB_NAME lib${LIB_NAME}.so.12 lib${LIB_NAME}.so.2 ${LIB_NAME})
   endif()
 
   find_library(${LIB_VAR}

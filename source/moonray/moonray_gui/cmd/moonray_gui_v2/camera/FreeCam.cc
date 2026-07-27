@@ -1,7 +1,9 @@
-// Copyright 2023-2025 DreamWorks Animation LLC
+// Copyright 2023-2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #include "FreeCam.h"
+
+#include <moonray/rendering/rndr/RenderContext.h>
 
 // must be between 0 and 1
 #define FREECAM_MAX_DAMPENING   0.1f
@@ -53,6 +55,12 @@ enum
 };
 
 //----------------------------------------------------------------------------
+
+void 
+FreeCam::setRenderContext(const moonray::rndr::RenderContext &context)
+{
+    mRenderContext = &context;
+}
 
 Mat4f
 FreeCam::resetTransform(const Mat4f &xform, const bool makeDefault)
@@ -183,6 +191,7 @@ FreeCam::processKeyPressEvent(GLFWwindow* window, const Action action)
     case ACTION_CAM_PRINT_MATRICES: printCameraMatrices();               return true;
     case ACTION_CAM_SET_UP_VECTOR:  mRoll = 0.0f;                        return true;
     case ACTION_CAM_RESET:          resetCamera();                       return true;
+    case ACTION_CAM_FRAME_SCENE:    frameScene();                        return true;
     case ACTION_CAM_ROTATE:         mMouseMode = ROTATE;                 break;
     case ACTION_CAM_ROLL:           mMouseMode = ROLL;                   break;
     default:                        mMouseMode = NONE;
@@ -248,6 +257,32 @@ FreeCam::resetCamera()
         clearMovementState();
         resetTransform(mInitialTransform, false);
     }
+}
+
+void
+FreeCam::frameScene()
+{
+    MNRY_ASSERT(mRenderContext);
+    if (!mRenderContext) {
+        return;
+    }
+    const scene_rdl2::math::BBox3f sceneBounds = mRenderContext->getSceneBoundsWorld();
+
+    const float sceneSize = sceneBounds.size().length();
+    if (sceneSize < scene_rdl2::math::sEpsilon) {
+        return; // Avoid framing if the scene is too small or degenerate
+    }
+
+    const scene_rdl2::math::Vec3f& viewDir = NavigationCam::FRAME_CAM_VIEW; // already normalized
+
+    // Then, position the camera so that we can see the full scene.
+    const float focusDistance = sceneSize;
+    const scene_rdl2::math::Vec3f sceneCenter = center(sceneBounds);
+    mPosition = sceneCenter - viewDir * focusDistance;
+
+    mYaw = scene_rdl2::math::atan2(-viewDir.x, -viewDir.z);
+    mPitch = scene_rdl2::math::asin(viewDir.y);
+    mRoll = 0.0f; // default to upright
 }
 
 void

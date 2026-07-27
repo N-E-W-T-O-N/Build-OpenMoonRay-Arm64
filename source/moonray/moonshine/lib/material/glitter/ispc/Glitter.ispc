@@ -201,10 +201,12 @@ initializeNoiseSample(varying NOISE_WorleySample& noiseSample,
 
     noiseSample.position = pos;
 
-    Vec3f dPds, dPdt;
+    Vec3f dPds, dPdt = Vec3f_ctor(0.0f);
     if (returnSpace == SHADING_SPACE_REFERENCE) {
-        dPds = state.mdPds;
-        dPdt = state.mdPdt;
+        if (isdsProvided(state, me->mRefPKey)) {
+            dPds = getdVec3fAttributeds(tls, state, me->mRefPKey);
+            dPdt = getdVec3fAttributedt(tls, state, me->mRefPKey);
+        }
     } else {
         dPds = transformVector(me->mXform,
                                SHADING_SPACE_RENDER,
@@ -560,7 +562,8 @@ createMacroFlakes(const uniform GLITTER_Glitter * uniform me,
                   const uniform int label,
                   const varying float coverageFactor,
                   varying BsdfBuilderBehavior combineBehavior,
-                  varying bool& singleMacroFlake)
+                  varying bool& singleMacroFlake,
+                  const uniform LightSet * uniform lightSet)
 {
     // assume we'll only create one for now
     singleMacroFlake = true;
@@ -610,7 +613,7 @@ createMacroFlakes(const uniform GLITTER_Glitter * uniform me,
                                         glitterFlakeRefl,
                                         mask * flakeWeight,
                                         combineBehavior,
-                                        label);
+                                        label, lightSet);
 
         accumMacroFlakesColor = currFlakeColor;
         return accumMacroFlakesColor;
@@ -650,7 +653,7 @@ createMacroFlakes(const uniform GLITTER_Glitter * uniform me,
                                             glitterFlakeRefl,
                                             scale * mask,
                                             combineBehavior,
-                                            label);
+                                            label, lightSet);
 
             accumMacroFlakesColor = accumMacroFlakesColor + currFlakeColor;
         }
@@ -677,7 +680,8 @@ createMicroFlake(const uniform GLITTER_Glitter * uniform me,
                  const varying float mask,
                  const uniform int label,
                  const varying float coverageFactor,
-                 const varying BsdfBuilderBehavior combineBehavior)
+                 const varying BsdfBuilderBehavior combineBehavior,
+                 const uniform LightSet * uniform lightSet)
 {
     Color avgColor = sBlack;
 
@@ -727,7 +731,7 @@ createMicroFlake(const uniform GLITTER_Glitter * uniform me,
                                             stochasticFlakesRefl,
                                             microFlakeVis * coverageFactor * mask,
                                             combineBehavior,
-                                            label);
+                                            label, lightSet);
     }
 
     return avgColor * (1.0f / (const varying float)microFlakeCount);
@@ -1186,7 +1190,7 @@ createLobes(const uniform GLITTER_Glitter * uniform me,
                               baseFlakeColors,flakeRoughnesses, flakeTextures,
                               hsvColorVariation, glitterMask, label,
                               coverageFactor, combineBehavior,
-                              createdSingleMacroFlake);
+                              createdSingleMacroFlake, lightSet);
     }
 
     if (createdSingleMacroFlake) {
@@ -1245,7 +1249,7 @@ createLobes(const uniform GLITTER_Glitter * uniform me,
                                           microFlakeCount, macroFlakeCount, flakes, refFrame,
                                           microFlakeVis, baseFlakeColors,
                                           hsvColorVariation, glitterMask, label,
-                                          coverageFactor, combineBehavior);
+                                          coverageFactor, combineBehavior, lightSet);
 
         // Add a Cook-Torrance lobe weighted by the remaining blend weight
         if (microFacetVis > 0.0f && !isBlack(avgColor)) {

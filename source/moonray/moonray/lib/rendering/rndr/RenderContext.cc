@@ -1,4 +1,4 @@
-// Copyright 2023-2025 DreamWorks Animation LLC
+// Copyright 2023-2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 #include <scene_rdl2/render/util/AtomicFloat.h> // Needs to be included before any OpenImageIO file
 #include <moonray/rendering/pbr/core/Scene.h>
@@ -260,6 +260,12 @@ RenderContext::RenderContext(RenderOptions& options, std::stringstream* initMess
     // Set up fatal shade/sample funcs for use when shaders have a fatal error
     mSceneContext->setFatalShadeFunc(fatalShade);
     mSceneContext->setFatalSampleFunc(fatalSample);
+    mSceneContext->setFatalSampleFuncBool(fatalSampleBool);
+    mSceneContext->setFatalSampleFuncInt(fatalSampleInt);
+    mSceneContext->setFatalSampleFuncVec4f(fatalSampleVec4f);
+    mSceneContext->setFatalSampleFuncRgba(fatalSampleRgba);
+    mSceneContext->setFatalSampleFuncMat3f(fatalSampleMat3f);
+    mSceneContext->setFatalSampleFuncMat4f(fatalSampleMat4f);
     mSceneContext->setFatalSampleNormalFunc(fatalSampleNormal);
 
     mRenderStats.reset(new RenderStats);
@@ -676,7 +682,51 @@ RenderContext::bakeGeometry(std::vector<std::unique_ptr<geom::BakedMesh>>& baked
     return true;
 }
 
-void
+bool
+RenderContext::checkGeometryChangesRequireReload()
+{
+    // Safety checks
+    if (!mSceneContext || !mLayer) {
+        return false;
+    }
+
+    // Apply updates to populate geometry change tracking
+    mSceneContext->applyUpdates(mLayer);
+
+    // Check for geometry changes that require full reload
+    const auto& changedGeoms = mLayer->getChangedOrDeformedGeometries();
+
+    for (const auto& geomPair : changedGeoms) {
+        scene_rdl2::rdl2::Geometry* geom = geomPair.first;
+
+        // A full reload is only required if a changed attribute actually needs
+        // the geometry to be regenerated/retessellated. Attributes are tagged
+        // to indicate when that is not necessary:
+        //   - FLAGS_CAN_SKIP_GEOM_RELOAD: change needs neither a reload nor a
+        //     BVH rebuild (e.g. ray_epsilon, a ray traversal tolerance).
+        //   - FLAGS_GEOM_RELOAD_BVH_ONLY: change needs a BVH rebuild but no
+        //     reload (e.g. the visibility flags, baked into the BVH ray mask).
+        // The BVH rebuild for the latter is handled by the normal incremental
+        // update path (the geometry stays in the changed-geometry list).
+        const scene_rdl2::rdl2::SceneClass& sceneClass = geom->getSceneClass();
+        for (auto attrIter = sceneClass.beginAttributes();
+             attrIter != sceneClass.endAttributes(); ++attrIter) {
+            const scene_rdl2::rdl2::Attribute* attribute = *attrIter;
+            if (!geom->hasChanged(attribute)) {
+                continue;
+            }
+            if (!attribute->updateRequiresGeomReload() ||
+                attribute->updateOnlyRequiresBVHRebuild()) {
+                continue;
+            }
+            // A reload-requiring attribute changed, so a reload is required.
+            return true;
+        }
+    }
+    return false;
+}
+
+bool
 RenderContext::updateScene(const std::string& manifest, const std::string& payload)
 {
     MNRY_ASSERT_REQUIRE(!mRendering, "Cannot update scene data while rendering is in progress.");
@@ -684,26 +734,32 @@ RenderContext::updateScene(const std::string& manifest, const std::string& paylo
     if (!mSceneLoaded) {
         // Add the update to the queue that will be processed after we've loaded our scene
         mUpdateQueue.push_back(std::make_pair(manifest, payload));
+        return false;
     } else {
         // Apply the binary update.
         RenderTimer funcTimer(mRenderStats->mUpdateSceneTime);
         scene_rdl2::rdl2::BinaryReader reader(*mSceneContext);
         reader.fromBytes(manifest, payload);
         mSceneUpdated = true;
+
+        return checkGeometryChangesRequireReload();
     }
 }
 
-void
+bool
 RenderContext::updateScene(const std::string& filename)
 {
     MNRY_ASSERT_REQUIRE(!mRendering, "Cannot update scene data while rendering is in progress.");
 
     if (!mSceneLoaded) {
         mUpdateQueue.push_back(std::make_pair(FILE_TOKEN, filename));
+        return false;
     } else {
         RenderTimer funcTimer(mRenderStats->mUpdateSceneTime);
         readSceneFromFile(filename, *mSceneContext);
         mSceneUpdated = true;
+
+        return checkGeometryChangesRequireReload();
     }
 }
 
@@ -3180,6 +3236,54 @@ RenderContext::fatalSample(const scene_rdl2::rdl2::Map* self, shading::TLState *
 }
 
 void
+RenderContext::fatalSampleBool(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                           const shading::State& state,scene_rdl2::rdl2::Bool* sample)
+{
+    const scene_rdl2::rdl2::SceneVariables &sv = self->getSceneClass().getSceneContext()->getSceneVariables();
+    *sample = sv.get(scene_rdl2::rdl2::SceneVariables::sFatalBool);
+}
+
+void
+RenderContext::fatalSampleInt(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                           const shading::State& state, scene_rdl2::rdl2::Int* sample)
+{
+    const scene_rdl2::rdl2::SceneVariables &sv = self->getSceneClass().getSceneContext()->getSceneVariables();
+    *sample = sv.get(scene_rdl2::rdl2::SceneVariables::sFatalInt);
+}
+
+void
+RenderContext::fatalSampleVec4f(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                           const shading::State& state, scene_rdl2::math::Vec4f* sample)
+{
+    const scene_rdl2::rdl2::SceneVariables &sv = self->getSceneClass().getSceneContext()->getSceneVariables();
+    *sample = sv.get(scene_rdl2::rdl2::SceneVariables::sFatalVec4f);
+}
+
+void
+RenderContext::fatalSampleRgba(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                           const shading::State& state, scene_rdl2::rdl2::Rgba* sample)
+{
+    const scene_rdl2::rdl2::SceneVariables &sv = self->getSceneClass().getSceneContext()->getSceneVariables();
+    *sample = sv.get(scene_rdl2::rdl2::SceneVariables::sFatalRgba);
+}
+
+void
+RenderContext::fatalSampleMat3f(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                           const shading::State& state, scene_rdl2::math::Mat3f* sample)
+{
+    const scene_rdl2::rdl2::SceneVariables &sv = self->getSceneClass().getSceneContext()->getSceneVariables();
+    *sample = sv.get(scene_rdl2::rdl2::SceneVariables::sFatalMat3f);
+}
+
+void
+RenderContext::fatalSampleMat4f(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                           const shading::State& state, scene_rdl2::math::Mat4f* sample)
+{
+    const scene_rdl2::rdl2::SceneVariables &sv = self->getSceneClass().getSceneContext()->getSceneVariables();
+    *sample = sv.get(scene_rdl2::rdl2::SceneVariables::sFatalMat4f);
+}
+
+void
 RenderContext::fatalSampleNormal(const scene_rdl2::rdl2::NormalMap* self, shading::TLState *tls,
                                  const shading::State& state, Vec3f* sample)
 {
@@ -3645,6 +3749,35 @@ RenderContext::restoreCachedCameraXform()
     camera->beginUpdate();
     camera->set(scene_rdl2::rdl2::Node::sNodeXformKey, mPathVisualizerManager->getCachedCameraXform());
     camera->endUpdate();
+}
+
+void
+RenderContext::getCameraAxesScreenSpace(scene_rdl2::math::Vec2f& axisXDir,
+                                        scene_rdl2::math::Vec2f& axisYDir,
+                                        scene_rdl2::math::Vec2f& axisZDir) const
+{
+    const pbr::Camera* camera = mPbrScene->getCamera();
+    
+    // Extract the camera's local axes from the Camera2World transform.
+    // The columns of the rotation part represent the camera's local X, Y, Z axes.
+    const scene_rdl2::math::Mat4d& camera2World = camera->getCamera2World();
+    
+    // Get camera's local axes (columns of the rotation matrix)
+    // We can assume camera2World has orthonormal rotation columns
+    // NOTE: scene_rdl2::math::Mat4d is column-major
+    axisXDir = scene_rdl2::math::Vec2f(camera2World[0][0], camera2World[1][0]);
+    axisYDir = scene_rdl2::math::Vec2f(camera2World[0][1], camera2World[1][1]);
+    axisZDir = scene_rdl2::math::Vec2f(camera2World[0][2], camera2World[1][2]);
+}
+
+scene_rdl2::math::BBox3f
+RenderContext::getSceneBoundsWorld() const
+{
+    // Embree bounds are in render space, so we need to convert them to world space
+    const scene_rdl2::math::BBox3f renderBounds = mPbrScene->getEmbreeAccelerator()->getBounds();
+    const scene_rdl2::math::Mat4f render2World(mPbrScene->getRender2World());
+
+    return scene_rdl2::math::transformBBox(render2World, renderBounds);
 }
 
 } // namespace rndr

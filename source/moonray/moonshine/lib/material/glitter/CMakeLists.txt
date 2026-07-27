@@ -44,8 +44,8 @@ target_link_libraries(${objLib}
 # Set standard compile/link options
 Moonshine_ispc_compile_options(${objLib})
 
-get_target_property(objLibDeps ${objLib} DEPENDENCY)
-if(NOT objLibDeps STREQUAL "")
+get_target_property(objLibDeps ${objLib} ISPC_DEP_TARGET)
+if(objLibDeps)
     add_dependencies(${objLibDeps}
         ${PROJECT_NAME}::common_interpolation
         ${PROJECT_NAME}::map_projection

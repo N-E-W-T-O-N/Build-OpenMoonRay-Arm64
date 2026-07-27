@@ -14,7 +14,7 @@ def version():
     """
     Increment the build in the version.
     """
-    _version = '17.37'
+    _version = '18.4'
     from rezbuild import earlybind
     return earlybind.version(this, _version)
 
@@ -35,7 +35,8 @@ variants = [
         'refplat-vfx2023.1',
         'openimageio-2.4.8.0.x',
         'gcc-11.x',
-        'openvdb-11',
+        # 'openvdb-11',
+        'openvdb-11.0.0.2', # temp fix to work around a package issue with openvdb-11.0.0.3
         'zlib-1.2.11.x'
     ],
     [   # variant 1
@@ -44,7 +45,8 @@ variants = [
         'refplat-vfx2023.1',
         'openimageio-2.4.8.0.x',
         'gcc-11.x',
-        'openvdb-11',
+        # 'openvdb-11',
+        'openvdb-11.0.0.2', # temp fix to work around a package issue with openvdb-11.0.0.3
         'zlib-1.2.11.x'
     ],
     [   # variant 2
@@ -62,7 +64,8 @@ variants = [
         'refplat-vfx2024.0',
         'openimageio-2.4.8.0.x',
         'gcc-11.x',
-        'openvdb-11',
+        # 'openvdb-11',
+        'openvdb-11.0.0.2', # temp fix to work around a package issue with openvdb-11.0.0.3
         'zlib-1.2.11.x'
     ],
     [   # variant 4
@@ -71,7 +74,8 @@ variants = [
         'refplat-vfx2025.0',
         'openimageio-3.0',
         'gcc-11.x',
-        'openvdb-12',
+        # 'openvdb-12',
+        'openvdb-12.1.1.0', # temp fix to work around a package issue with openvdb-12.1.1.1
         'zlib-1.2.11.x'
     ],
     [   # variant 5
@@ -80,7 +84,8 @@ variants = [
         'refplat-houdini21.0',
         'openimageio-3.0',
         'gcc-11.x',
-        'openvdb-12',
+        # 'openvdb-12',
+        'openvdb-12.1.1.0', # temp fix to work around a package issue with openvdb-12.1.1.1
         'zlib-1.2.11.x'
     ],
     [   # variant 6
@@ -108,18 +113,18 @@ requires = [
     'cuda-12.1.0.x',
     'embree-4.2.0.x',
     'imath-3',
-    'mcrt_denoise-6.23',
+    'mcrt_denoise-7.2',
     'mkl',
     'openexr',
     'opensubdiv',
     'openvdb',
     'optix-7.6.0.x',
     'random123-1.08.3',
-    'scene_rdl2-15.22',
+    'scene_rdl2-16.2',
 ]
 
 private_build_requires = [
-    'cmake_modules-1.0',
+    'cmake_modules-2.0',
     'cppunit',
     'ispc-1.20.0.x',
     'python-3.9|3.10|3.11'

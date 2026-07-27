@@ -219,9 +219,10 @@ EnvLight_eval(const uniform Light * uniform li, uniform ShadingTLState * uniform
 
     Color radiance = light->mRadiance;
     if (light->mDistribution) {
-        // TODO: Use proper filtering with ray differentials and mip-mapping.
         radiance = radiance * ImageDistribution_eval(light->mDistribution,
                 isect.uv.x, isect.uv.y, mipLevel, light->mTextureFilter);
+    } else {
+        radiance = radiance * light->mTextureFallbackColor;
     }
 
     if (lightFilterList) {

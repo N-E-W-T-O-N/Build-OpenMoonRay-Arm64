@@ -13,7 +13,20 @@
 #include <mach/mach_time.h> // mach_timebase_info(), mach_absolute_time()
 #else // else of PLATFORM_APPLE
 #include <unistd.h> // usleep()
+#if defined(__x86_64__)
 #include <x86intrin.h> // __rdtscp()
+#elif defined(__aarch64__)
+// ARM generic timer: cntvct_el0 is constant-rate and architecturally
+// synchronized across cores (no NUMA/migration skew unlike x86 TSC).
+namespace scene_rdl2 { namespace rec_time { namespace detail {
+inline uint64_t readCntvct()
+{
+    uint64_t v;
+    asm volatile("isb; mrs %0, cntvct_el0" : "=r"(v));
+    return v;
+}
+}}} // namespace scene_rdl2::rec_time::detail
+#endif
 #endif // end of Non PLATFORM_APPLE
 
 namespace scene_rdl2 {
@@ -158,16 +171,32 @@ public:
         //     ...
         //   double sec = (double)recTime.end() * tscSecPerCycle; // timing measurement end
         //
+#if defined(__aarch64__)
+        const uint64_t c0 = detail::readCntvct();
+        const uint64_t ns0 = RecTimeVDSO::getCurrentNanoSec(); // ns
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        const uint64_t c1 = detail::readCntvct();
+        const uint64_t ns1 = RecTimeVDSO::getCurrentNanoSec(); // ns
+#else
         const uint64_t c0 = __rdtsc();
         const uint64_t ns0 = RecTimeVDSO::getCurrentNanoSec(); // ns
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         const uint64_t c1 = __rdtsc();
         const uint64_t ns1 = RecTimeVDSO::getCurrentNanoSec(); // ns
+#endif
         const double deltaNs = static_cast<double>(ns1 - ns0);
         const double tscFreq = static_cast<double>(c1 - c0) / deltaNs;
         return 1.0 / tscFreq / 1e9;
     }
 
+#if defined(__aarch64__)
+    // cntvct_el0 is globally synchronized -> no cpu-migration guard needed
+    void start() { mStartTime = detail::readCntvct(); }
+    uint64_t end() // timeSec = (double)end() * secPerCycle
+    {
+        return detail::readCntvct() - mStartTime;
+    }
+#else
     void start() { mStartTime = __rdtscp(&mCpuId); }
     uint64_t end() // timeSec = (double)end() * secPerCycle
     {
@@ -176,6 +205,7 @@ public:
         if (cpuId != mCpuId) return 0ull;
         return t - mStartTime;
     }
+#endif
 
 protected:
     unsigned mCpuId {0};

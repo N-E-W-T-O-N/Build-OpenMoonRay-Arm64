@@ -1,4 +1,4 @@
-// Copyright 2023-2025 DreamWorks Animation LLC
+// Copyright 2023-2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 
@@ -133,17 +133,20 @@ public:
      * Updates the RDL scene with the given binary scene data. Must be called
      * between renders.
      *
-     * @param   rdlData Binary RDL data to apply to the scene.
+     * @param   manifest  Manifest string describing the binary update structure.
+     * @param   payload   Binary RDL data payload to apply to the scene.
+     * @return  True if geometry was changed and a full scene reload is needed.
      */
-    void updateScene(const std::string& manifest, const std::string& payload);
+    bool updateScene(const std::string& manifest, const std::string& payload);
 
     /**
      * Updates the RDL scene with the given scene file. Must be called
      * between renders.
      *
-     * @param   rdlData RDL file to apply to the scene.
+     * @param   filename  RDL file path to load and apply to the scene.
+     * @return  True if geometry was changed and a full scene reload is needed.
     */
-    void updateScene(const std::string& filename);
+    bool updateScene(const std::string& filename);
 
     /**
      * Sets the scene updated flag to true, which can happen if the
@@ -544,6 +547,12 @@ public:
     SamplingMode getSamplingMode() const { return mCachedSamplingMode; }
     finline void getAdaptiveSamplingParam(unsigned &minSamples, unsigned &maxSamples, float &targetError) const;
 
+    // Gets screen-space lines representing the current camera orientation, represented by 
+    // navigational axes. The front end is responsible for displaying these lines.
+    void getCameraAxesScreenSpace(scene_rdl2::math::Vec2f& axisXDir,
+                                  scene_rdl2::math::Vec2f& axisYDir,
+                                  scene_rdl2::math::Vec2f& axisZDir) const;
+
     //--------------------
 
     Parser& getParser() { return mParser; }
@@ -574,6 +583,10 @@ public:
     /// interactive PathVisualizer.
     void forceCameraUpdate();
 
+    // Returns the world-space bounding box of the scene.
+    // Currently used in moonray_gui to frame the scene.
+    scene_rdl2::math::BBox3f getSceneBoundsWorld() const;
+
 private:
     // Does any pre-render work, like building the spatial accelerator or
     // initializing any necessary libraries. Called in startFrame().
@@ -584,6 +597,9 @@ private:
 
     // Helper function which creates a PBR scene.
     void createPbrScene();
+
+    // Helper function to check if geometry changes require a full reload
+    bool checkGeometryChangesRequireReload();
 
     // Helper function that sets the active camera
     void initActiveCamera(const scene_rdl2::rdl2::Camera *camera);
@@ -757,6 +773,18 @@ private:
                            const shading::State& state, shading::BsdfBuilder& bsdfBuilder);
     static void fatalSample(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
                             const shading::State& state, scene_rdl2::math::Color* sample);
+    static void fatalSampleBool(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                            const shading::State& state, scene_rdl2::rdl2::Bool* sample);
+    static void fatalSampleInt(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                            const shading::State& state, scene_rdl2::rdl2::Int* sample);
+    static void fatalSampleVec4f(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                            const shading::State& state, scene_rdl2::math::Vec4f* sample);
+    static void fatalSampleRgba(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                            const shading::State& state, scene_rdl2::rdl2::Rgba* sample);
+    static void fatalSampleMat3f(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                            const shading::State& state, scene_rdl2::math::Mat3f* sample);
+    static void fatalSampleMat4f(const scene_rdl2::rdl2::Map* self, shading::TLState *tls,
+                            const shading::State& state, scene_rdl2::math::Mat4f* sample);
     static void fatalSampleNormal(const scene_rdl2::rdl2::NormalMap* self, shading::TLState *tls,
                                   const shading::State& state, scene_rdl2::math::Vec3f* sample);
 

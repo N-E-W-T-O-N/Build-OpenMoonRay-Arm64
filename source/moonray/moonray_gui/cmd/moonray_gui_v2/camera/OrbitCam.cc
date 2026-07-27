@@ -1,4 +1,4 @@
-// Copyright 2023-2025 DreamWorks Animation LLC
+// Copyright 2023-2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #include "OrbitCam.h"
@@ -287,6 +287,7 @@ OrbitCam::processKeyPressEvent(GLFWwindow* window, const Action action)
     case ACTION_CAM_SPEED_UP:       mInputState |= ORBIT_SPEED_UP;          return true;
     case ACTION_CAM_RECENTER:       recenterCamera();                       return true;
     case ACTION_CAM_RESET:          resetCamera();                          return true;
+    case ACTION_CAM_FRAME_SCENE:    frameScene();                           return true;
     case ACTION_CAM_SET_UP_VECTOR:  mCamera->mUp = Vec3f(0.0f, 1.0f, 0.0f); return true;
     case ACTION_CAM_PRINT_MATRICES: printCameraMatrices();                  return true;
     case ACTION_CAM_ROTATE:         mMouseMode = ROTATE;                    return true;
@@ -378,6 +379,30 @@ OrbitCam::resetCamera()
         mCamera->mUp = mInitialUp;
         mCamera->mFocusDistance = mInitialFocusDistance;
     }
+}
+
+void
+OrbitCam::frameScene()
+{
+    MNRY_ASSERT(mRenderContext);
+    if (!mRenderContext) {
+        return;
+    }
+    const scene_rdl2::math::BBox3f sceneBounds = mRenderContext->getSceneBoundsWorld();
+
+    const float sceneSize = sceneBounds.size().length();
+    if (sceneSize < scene_rdl2::math::sEpsilon) {
+        return; // Avoid framing if the scene is too small or degenerate
+    }
+
+    mCamera->mViewDir = NavigationCam::FRAME_CAM_VIEW; // already normalized
+    mCamera->mUp = scene_rdl2::math::Vec3f(0.0f, 1.0f, 0.0f);
+
+    // Then, position the camera so that we can see the full scene.
+    mCamera->mFocusDistance = sceneSize;
+    const scene_rdl2::math::Vec3f sceneCenter = center(sceneBounds);
+
+    mCamera->mPosition = sceneCenter - mCamera->mViewDir * mCamera->mFocusDistance;
 }
 
 bool

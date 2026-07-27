@@ -16,7 +16,7 @@ if 'early' not in locals() or not callable(early):
 
 @early()
 def version():
-    _version = '6.41'
+    _version = '7.6'
     from rezbuild import earlybind
     return earlybind.version(this, _version)
 
@@ -36,7 +36,7 @@ if 'scons' in sys.argv:
     build_system_pbr = 'bart_scons-10'
 else:
     build_system = 'cmake'
-    build_system_pbr = 'cmake_modules-1.0'
+    build_system_pbr = 'cmake_modules-1.1'
 
 variants = [
     [   # variant 0
@@ -97,13 +97,13 @@ sconsTargets = {
 }
 
 requires = [
-    'moonray-17.37',
-    'moonshine_dwa-14.41',
-    'moonshine-14.39',
-    'mcrt_computation-15.37',
+    'moonray-18.4',
+    'moonshine_dwa-15.6',
+    'moonshine-15.6',
+    'mcrt_computation-16.4',
     'arras4_core-4.10',
-    'mcrt_messages-14.9',
-    'mcrt_dataio-15.23',
+    'mcrt_messages-15.0',
+    'mcrt_dataio-16.2',
     'mkl'
 ]
 

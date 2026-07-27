@@ -18,7 +18,7 @@
 //   Sebastian Pop <spop@amazon.com>
 //   Developer Ecosystem Engineering <DeveloperEcosystemEngineering@apple.com>
 //   Danila Kutenin <danilak@google.com>
-//   François Turban (JishinMaster) <francois.turban@gmail.com>
+//   FranÃ§ois Turban (JishinMaster) <francois.turban@gmail.com>
 //   Pei-Hsuan Hung <afcidk@gmail.com>
 //   Yang-Hao Yuan <yuanyanghau@gmail.com>
 //   Syoyo Fujita <syoyo@lighttransport.com>
@@ -1571,7 +1571,12 @@ FORCE_INLINE __m64 _mm_cvtps_pi8(__m128 a)
 // packed half-precision (16-bit) floating-point elements, and store the results in dst. 
 FORCE_INLINE __m128i _mm_cvtps_ph (__m128 a, int imm8)
 {
-    return vcombine_f16(vcvt_f16_f32(a), vdup_n_f32(0));
+    // GCC (unlike Apple Clang) refuses implicit NEON vector-type conversions:
+    // upper half must be a real float16x4_t and the result reinterpreted to
+    // __m128i (int64x2_t). Reinterpreting a zero vector is bit-exact.
+    (void)imm8;
+    return vreinterpretq_s64_f16(
+        vcombine_f16(vcvt_f16_f32(a), vreinterpret_f16_f32(vdup_n_f32(0))));
 }
 
 // Convert packed unsigned 16-bit integers in a to packed single-precision

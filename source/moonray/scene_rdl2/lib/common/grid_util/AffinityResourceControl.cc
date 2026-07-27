@@ -5,6 +5,7 @@
 #include "NumaUtil.h"
 #include "ShmAffinityInfo.h"
 
+#include <algorithm> // std::sort, std::max_element (GCC 15 no longer includes transitively)
 #include <iostream> // debug
 #include <unistd.h> // getpid()
 #include <unordered_set>

@@ -5,6 +5,7 @@
 #include <scene_rdl2/render/cache/ValueContainerDequeue.h>
 #include <scene_rdl2/render/cache/ValueContainerEnqueue.h>
 
+#include <functional> // std::function (GCC 15 no longer includes transitively)
 #include <string>
 
 namespace scene_rdl2 {

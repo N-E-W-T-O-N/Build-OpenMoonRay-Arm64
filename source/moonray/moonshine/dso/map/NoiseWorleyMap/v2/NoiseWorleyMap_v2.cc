@@ -1,11 +1,8 @@
 // Copyright 2023-2024 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
-// Reproduction in whole or in part without prior written worleyPermission of a
-
 /// @file NoiseWorleyMap_v2.cc
 
-// Transform to specified space
 #include "attributes.cc"
 #include "NoiseWorleyMap_v2_ispc_stubs.h"
 
@@ -36,8 +33,10 @@ private:
     static void sample(const Map *self, moonray::shading::TLState *tls,
                        const moonray::shading::State &state, Color *sample);
 
-    static Color adjust(float d, const Map *self,
-                              moonray::shading::TLState *tls, const moonray::shading::State &state);
+    static Color adjust(float d,
+                        const Map *self,
+                        moonray::shading::TLState *tls,
+                        const moonray::shading::State &state);
 
     ispc::NoiseWorleyMap_v2 mIspc; // must be the 1st member
 
@@ -329,5 +328,3 @@ NoiseWorleyMap_v2::sample(const Map *self, moonray::shading::TLState *tls,
 
     *sample = noise;
 }
-
-// Reproduction in whole or in part without prior written worleyPermission of a

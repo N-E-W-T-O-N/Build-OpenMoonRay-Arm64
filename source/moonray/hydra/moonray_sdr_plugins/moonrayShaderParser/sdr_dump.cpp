@@ -30,12 +30,12 @@ void dumpProperty(SdrShaderPropertyConstPtr prop)
         std::cout << "** BAD PROPERTY **" << std::endl;
         return;
     }
-    SdfValueTypeName sdfTypeName;
-    TfToken backupType;
-    std::tie<SdfValueTypeName,TfToken>(sdfTypeName,backupType) = prop->GetTypeAsSdfType();
+    // GetTypeAsSdfType now returns an SdrSdfTypeIndicator instead of a pair
+    SdrSdfTypeIndicator typeIndicator = prop->GetTypeAsSdfType();
+    SdfValueTypeName sdfTypeName = typeIndicator.GetSdfType();
     TfToken sdfType = sdfTypeName.GetAsToken();
     TfToken propType = prop->GetType();
-    const NdrOptionVec& options = prop->GetOptions();
+    const SdrOptionVec& options = prop->GetOptions();
     if (!options.empty()) propType = TfToken("enum");
 
     std::cout << TABSTR;
@@ -55,7 +55,7 @@ void dumpProperty(SdrShaderPropertyConstPtr prop)
         }
         std::cout << std::endl;
     }
-    const NdrTokenMap&  metadata = prop->GetMetadata();
+    const SdrTokenMap&  metadata = prop->GetMetadata();
     for (const auto& item : metadata) {
         std::cout << TABSTR << TABSTR << "* " << item.first << " = " << item.second << std::endl;
     }
@@ -64,7 +64,7 @@ void dumpProperty(SdrShaderPropertyConstPtr prop)
 void dumpNode(SdrShaderNodeConstPtr node)
 {
     std::cout << "Identifier: " << node->GetIdentifier() << std::endl
-              << "Version:    " << node->GetVersion().GetString() << std::endl
+              << "Version:    " << node->GetShaderVersion().GetString() << std::endl
               << "Name:       " << node->GetName() << std::endl
               << "Family:     " << node->GetFamily() << std::endl
               << "Context:    " << node->GetContext() << std::endl
@@ -80,17 +80,17 @@ void dumpNode(SdrShaderNodeConstPtr node)
               << "IsValid:    " << node->IsValid() << std::endl;
 
     std::cout << "INPUTS:" << std::endl;
-    const NdrTokenVec& inputNames = node->GetInputNames();
+    const SdrTokenVec& inputNames = node->GetShaderInputNames();
     for (const TfToken& name : inputNames) {
         dumpProperty(node->GetShaderInput(name));
     }
     std::cout << "OUTPUTS:" << std::endl;
-    const NdrTokenVec& outputNames = node->GetOutputNames();
+    const SdrTokenVec& outputNames = node->GetShaderOutputNames();
     for (const TfToken& name : outputNames) {
         dumpProperty(node->GetShaderOutput(name));
     }
     std::cout << "METADATA:" << std::endl;
-    const NdrTokenMap& metadata = node->GetMetadata();
+    const SdrTokenMap& metadata = node->GetMetadata();
     for (const auto& item : metadata) {
         std::cout << TABSTR << "* " << item.first << " = " << item.second << std::endl;
     }

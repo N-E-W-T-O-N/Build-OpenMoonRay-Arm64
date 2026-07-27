@@ -7,6 +7,7 @@
 #include "../../GuiTypes.h"
 #include "../../RenderGui.h"
 #include <mcrt_denoise/denoiser/Denoiser.h>
+#include <functional>
 
 namespace moonray_gui_v2 {
 
@@ -18,6 +19,7 @@ namespace moonray_gui_v2 {
 ///     - Current denoising buffer
 ///     - Current camera type (orbit or free)
 ///     - Name of the current render output
+///     - A help button that displays hotkeys and app usage information
 class StatusBar : public Component {
 public:
     StatusBar() : Component(/*isOpen*/ true) {}
@@ -25,6 +27,9 @@ public:
 
     // Draws the status bar
     void draw(Viewport* viewport, const ImVec2& currentPixel, const ImVec2& dockOffset) override;
+
+    // Set a callback function to be called when the help button is clicked
+    void setHelpButtonCallback(const std::function<void()>& callback) { mHelpCallback = callback; }
 
     int getWidth() const override { return -1; }  // -1 means auto-size to full width
     int getHeight() const override { return mHeight; }
@@ -56,6 +61,9 @@ private:
 
     float mLargeSpace {15};         // large amt of horizontal spacing (to separate statuses)
     float mSmallSpace {5};          // small amt of horizontal spacing (to separate sub-statuses)
+    float mButtonSpace {8};         // spacing between help button and other status items
+
+    std::function<void()> mHelpCallback {nullptr};  // callback for help button
 };
 
 } // end namespace moonray_gui_v2

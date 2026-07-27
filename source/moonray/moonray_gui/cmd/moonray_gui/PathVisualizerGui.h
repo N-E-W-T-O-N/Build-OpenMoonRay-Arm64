@@ -1,4 +1,4 @@
-// Copyright 2025 DreamWorks Animation LLC
+// Copyright 2026 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -41,17 +41,22 @@ public slots:
     void slot_processLightSamples(const int samples);
     void slot_processBsdfSamples(const int samples);
 
-    void slot_processDiffuseRayFlag(const int flag);
-    void slot_processSpecularRayFlag(const int flag);
-    void slot_processBsdfSampleFlag(const int flag);
+    void slot_processIndirectDiffuseRayFlag(const int flag);
+    void slot_processIndirectSpecularRayFlag(const int flag);
+    void slot_processDirectDiffuseRayFlag(const int flag);
+    void slot_processDirectSpecularRayFlag(const int flag);
+    void slot_processDirectLightRayFlag(const int flag);
+    void slot_processDiffuseSampleFlag(const int flag);
+    void slot_processSpecularSampleFlag(const int flag);
     void slot_processLightSampleFlag(const int flag);
 
     void slot_setLineWidth(const int width);
-    void slot_setDiffuseRayColor(const QColor& color);
-    void slot_setSpecularRayColor(const QColor& color);
-    void slot_setBsdfSampleColor(const QColor& color);
-    void slot_setLightSampleColor(const QColor& color);
     void slot_setCameraRayColor(const QColor& color);
+    void slot_setIndirectDiffuseRayColor(const QColor& color);
+    void slot_setIndirectSpecularRayColor(const QColor& color);
+    void slot_setDirectDiffuseRayColor(const QColor& color);
+    void slot_setDirectSpecularRayColor(const QColor& color);
+    void slot_setDirectLightRayColor(const QColor& color);
 
 signals:
     void sig_styleParamChanged();
@@ -80,11 +85,12 @@ private:
 
     QLabel* mLineWidthValue;
 
-    ColorPicker* mDiffuseRayColorPicker;
-    ColorPicker* mSpecularRayColorPicker;
-    ColorPicker* mBsdfSampleColorPicker;
-    ColorPicker* mLightSampleColorPicker;
     ColorPicker* mCameraRayColorPicker;
+    ColorPicker* mIndirectDiffuseRayColorPicker;
+    ColorPicker* mIndirectSpecularRayColorPicker;
+    ColorPicker* mDirectDiffuseRayColorPicker;
+    ColorPicker* mDirectSpecularRayColorPicker;
+    ColorPicker* mDirectLightRayColorPicker;
 };
 
 } // namespace moonray_gui

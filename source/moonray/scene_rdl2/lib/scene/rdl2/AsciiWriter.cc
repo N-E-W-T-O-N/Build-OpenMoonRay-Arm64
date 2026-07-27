@@ -131,6 +131,24 @@ vec4dToString(Vec4d v)
 }
 
 std::string
+mat3fToString(const Mat3f& m)
+{
+    return util::buildString(FLOAT_PREC, "Mat3(",
+            m.vx.x, ", ", m.vx.y, ", ", m.vx.z, ", ",
+            m.vy.x, ", ", m.vy.y, ", ", m.vy.z, ", ",
+            m.vz.x, ", ", m.vz.y, ", ", m.vz.z, ')');
+}
+
+std::string
+mat3dToString(const Mat3d& m)
+{
+    return util::buildString(DOUBLE_PREC, "Mat3(",
+            m.vx.x, ", ", m.vx.y, ", ", m.vx.z, ", ",
+            m.vy.x, ", ", m.vy.y, ", ", m.vy.z, ", ",
+            m.vz.x, ", ", m.vz.y, ", ", m.vz.z, ')');
+}
+
+std::string
 mat4fToString(const Mat4f& m)
 {
     return util::buildString(FLOAT_PREC, "Mat4(",
@@ -197,6 +215,12 @@ fetchBinding(const SceneObject* so, const Attribute* attr)
         case TYPE_VEC4D:
             return so->getBinding(AttributeKey<Vec4d>(*attr));
 
+        case TYPE_MAT3F:
+            return so->getBinding(AttributeKey<Mat3f>(*attr));
+
+        case TYPE_MAT3D:
+            return so->getBinding(AttributeKey<Mat3d>(*attr));
+
         case TYPE_MAT4F:
             return so->getBinding(AttributeKey<Mat4f>(*attr));
 
@@ -247,6 +271,12 @@ fetchBinding(const SceneObject* so, const Attribute* attr)
 
         case TYPE_VEC4D_VECTOR:
             return so->getBinding(AttributeKey<Vec4dVector>(*attr));
+
+        case TYPE_MAT3F_VECTOR:
+            return so->getBinding(AttributeKey<Mat3fVector>(*attr));
+
+        case TYPE_MAT3D_VECTOR:
+            return so->getBinding(AttributeKey<Mat3dVector>(*attr));
 
         case TYPE_MAT4F_VECTOR:
             return so->getBinding(AttributeKey<Mat4fVector>(*attr));
@@ -415,10 +445,14 @@ AsciiWriter::blurredValueToString(const SceneObject* so, const Attribute* attr) 
 {
     std::ostringstream s;
 
-    // TODO: only output single value if begin and end are the same
     if (attr->isBlurrable()) {
-        s << "blur(" << valueToString(so, attr, TIMESTEP_BEGIN) << ", " <<
-                valueToString(so, attr, TIMESTEP_END) << ")";
+        const std::string beginStr = valueToString(so, attr, TIMESTEP_BEGIN);
+        const std::string endStr = valueToString(so, attr, TIMESTEP_END);
+        if (beginStr == endStr) {
+            s << beginStr;
+        } else {
+            s << "blur(" << beginStr << ", " << endStr << ")";
+        }
     } else {
         s << valueToString(so, attr, TIMESTEP_BEGIN);
     }
@@ -435,7 +469,10 @@ AsciiWriter::boundValueToString(const SceneObject* so, const Attribute* attr) co
     const SceneObject* boundObject = nullptr;
     try {
         boundObject = fetchBinding(so, attr);
-        isBinding = true;
+        // Only treat it as a binding if we actually have a bound object
+        // (not nullptr). Otherwise bindable attributes with no binding will
+        // output bind(undef(), value) instead of just the value.
+        isBinding = (boundObject != nullptr);
     } catch (const except::TypeError&) {
         isBinding = false;
     }
@@ -522,6 +559,12 @@ AsciiWriter::valueToString(const SceneObject* so, const Attribute* attr,
     case TYPE_VEC4D:
         return vec4dToString(so->get(AttributeKey<Vec4d>(*attr), timestep));
 
+    case TYPE_MAT3F:
+        return mat3fToString(so->get(AttributeKey<Mat3f>(*attr), timestep));
+
+    case TYPE_MAT3D:
+        return mat3dToString(so->get(AttributeKey<Mat3d>(*attr), timestep));
+
     case TYPE_MAT4F:
         return mat4fToString(so->get(AttributeKey<Mat4f>(*attr), timestep));
 
@@ -572,6 +615,12 @@ AsciiWriter::valueToString(const SceneObject* so, const Attribute* attr,
 
     case TYPE_VEC4D_VECTOR:
         return vectorToString<Vec4dVector>(so, attr, timestep, vec4dToString);
+
+    case TYPE_MAT3F_VECTOR:
+        return vectorToString<Mat3fVector>(so, attr, timestep, mat3fToString);
+
+    case TYPE_MAT3D_VECTOR:
+        return vectorToString<Mat3dVector>(so, attr, timestep, mat3dToString);
 
     case TYPE_MAT4F_VECTOR:
         return vectorToString<Mat4fVector>(so, attr, timestep, mat4fToString);

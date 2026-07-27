@@ -53,7 +53,7 @@ OCIO::RangeTransformRcPtr createClampTransform(const double minClamp, const doub
 }
 
 OCIO::MatrixTransformRcPtr createChannelViewTransform(const OCIO::ConstConfigRcPtr& config, 
-                                                        std::array<int, 4>& channel) 
+                                                      std::array<int, 4>& channel) 
 {
     // Channel swizzling
     double lumaCoef1 = scene_rdl2::util::getenv<double>("LUMA_COEF1", SRGB_LUMA_COEF1);
@@ -71,7 +71,7 @@ OCIO::MatrixTransformRcPtr createChannelViewTransform(const OCIO::ConstConfigRcP
 }
 
 OCIO::DisplayViewTransformRcPtr createDisplayViewTransform(const OCIO::ConstConfigRcPtr config, 
-                                                            const bool configIsRaw) 
+                                                           const bool configIsRaw) 
 {
     // Lookup the display ColorSpace
     const char* display = config->getDefaultDisplay();
@@ -231,7 +231,7 @@ void ColorManager::setupConfig()
     } 
     catch (const OCIO::Exception & exception) {
         std::cerr << "OpenColorIO Error: Invalid filepath provided. A default color profile will be used. " <<
-                        "\nMore Info: " << exception.what() << "\n";
+                     "\nMore Info: " << exception.what() << "\n";
         mConfig = OCIO::Config::CreateRaw();
         mConfigIsRaw = true;
     }
@@ -247,9 +247,9 @@ void ColorManager::setupConfig()
 ///     5. Clamp [0,1]
 /// 
 void ColorManager::configureOcio(const double exposure, 
-                                    const double gamma, 
-                                    const DebugMode mode, 
-                                    OCIO::ConstCPUProcessorRcPtr& cpuProcessor) const
+                                 const double gamma, 
+                                 const DebugMode mode, 
+                                 OCIO::ConstCPUProcessorRcPtr& cpuProcessor) const
 {
     const OCIO::ExposureContrastTransformRcPtr exposureTransform = createExposureTransform(exposure);
     const OCIO::ExponentTransformRcPtr userGammaTransform =        createGammaTransform(gamma);

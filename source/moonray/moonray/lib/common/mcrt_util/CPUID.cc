@@ -1,7 +1,7 @@
 // Copyright 2023-2024 DreamWorks Animation LLC
 // SPDX-License-Identifier: Apache-2.0
 
-#if !defined(__APPLE__)
+#if defined(__x86_64__)
 
 #include "CPUID.h"
 

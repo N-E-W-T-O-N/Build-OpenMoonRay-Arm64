@@ -43,7 +43,6 @@ computeActiveLights(scene_rdl2::alloc::Arena *arena,
                     const PathVertex * const pv,
                     float rayTime,
                     LightSet &lightSet,
-                    bool &hasRayTerminatorLights,
                     const Rdl2LightSetList& parentLobeLightSets)
 {
     MNRY_ASSERT(arena);
@@ -74,7 +73,6 @@ computeActiveLights(scene_rdl2::alloc::Arena *arena,
     }
 
     int activeLightCount = 0;
-    hasRayTerminatorLights = false;
 
     if (lightList) {
         size_t upperBound = lightList->size();
@@ -103,7 +101,6 @@ computeActiveLights(scene_rdl2::alloc::Arena *arena,
                 light->canIlluminate(pos, normal, rayTime, radius, (*lightFilterLists)[i], pv)) {
                 lightIdMap[i] = activeLightCount;
                 activeLightId[activeLightCount++] = i;
-                hasRayTerminatorLights |= light->getIsRayTerminator();
             } else {
                 lightIdMap[i] = -1;
             }
@@ -152,6 +149,39 @@ bool chooseThisLight(const IntegratorSample1D &samples, int depth, unsigned int 
     }
 
     return chooseThisOne;
+}
+
+bool isLightActive(const Light* light, const int visibilityMask, const bool includeRayTerminationLights,
+                   const scene_rdl2::rdl2::LightSet* bsdfLobeLightSet, const Rdl2LightSetList* parentLobeLightSets)
+{
+    if ((visibilityMask & light->getVisibilityMask()) == 0) {
+        // skip light if it is masked
+        return false;
+    }
+
+    if (!includeRayTerminationLights && light->getIsRayTerminator()) {
+        // Skip any ray termination lights if we were told not to include them
+        return false;
+    }
+
+    if (light->hasPortal()) {
+        // skip light if it has a portal assigned
+        return false;
+    }
+
+    // Skip the light if it's not in all of the parent lobes' lightsets or the
+    // current lobe's lightset.
+    const scene_rdl2::rdl2::Light *rdlLight = light->getRdlLight();
+    if (parentLobeLightSets != nullptr && !parentLobeLightSets->allLightSetsContain(rdlLight)) {
+        return false;
+    }
+    if (bsdfLobeLightSet != nullptr) {
+        if (!bsdfLobeLightSet->contains(rdlLight)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 //----------------------------------------------------------------------------
