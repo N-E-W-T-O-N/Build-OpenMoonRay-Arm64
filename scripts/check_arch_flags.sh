@@ -11,10 +11,13 @@ BUILD="${1:-/build}"
 if [ ! -d "${BUILD}" ]; then echo "usage: $0 <build-dir>" >&2; exit 2; fi
 
 echo "Scanning ${BUILD} for leaked x86 flags/defines..."
-# Ninja puts flags in build.ninja; Make puts them in CMakeFiles/**/flags.make
-hits=$(grep -rEn -- '-march=core-avx2|-mavx\b|-mfma\b|(^|[^A-Z_])__AVX__|avx2-i32x8' \
-        "${BUILD}" \
+# Ninja puts flags in build.ninja; Make puts them in CMakeFiles/**/flags.make.
+# NOTE: --include options must come BEFORE '--' (end-of-options marker),
+# otherwise grep treats them as file operands and scans everything.
+hits=$(grep -rEn \
         --include='flags.make' --include='build.ninja' --include='*.cmake' \
+        -e '-march=core-avx2|-mavx\b|-mfma\b|(^|[^A-Z_])__AVX__|avx2-i32x8' \
+        "${BUILD}" \
         2>/dev/null)
 
 if [ -n "${hits}" ]; then
