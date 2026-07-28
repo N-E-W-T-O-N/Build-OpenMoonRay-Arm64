@@ -31,6 +31,53 @@ index b719930..a3b1815 100644
                  -Qoption,cpp,--print_include_stack
                  -fmerge-debug-strings
                  -fexceptions                    # Enable exception handling.
+diff --git a/cmd/brdf_cmd/brdf_cylinder_extract/Image.cc b/cmd/brdf_cmd/brdf_cylinder_extract/Image.cc
+index 0c13685..da39a0d 100644
+--- a/cmd/brdf_cmd/brdf_cylinder_extract/Image.cc
++++ b/cmd/brdf_cmd/brdf_cylinder_extract/Image.cc
+@@ -5,9 +5,42 @@
+ 
+ #include <scene_rdl2/common/except/exceptions.h>
+ 
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon); OIIO's headers
++// dispatch on them. Every TU including OIIO must agree on this state or struct
++// layouts differ across TUs.
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/imageio.h>
+ #include <OpenImageIO/imagebuf.h>
+ #include <OpenImageIO/imagebufalgo.h>
++#if defined(__aarch64__) && !defined(MOONRAY_ISA_NEON2X)
++// restore Platform.hh's masquerade for the remainder of this TU
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
+ 
+ #include <string>
+ 
 diff --git a/cmd/denoise_cmd/main.cc b/cmd/denoise_cmd/main.cc
 index dde0002..c6e2be0 100644
 --- a/cmd/denoise_cmd/main.cc
@@ -243,6 +290,141 @@ index 1d63934..9279db3 100644
  #endif
  
  typedef scene_rdl2::math::BBox3f    BBox3f;
+diff --git a/lib/rendering/lpe/osl/optautomata.h b/lib/rendering/lpe/osl/optautomata.h
+index 4c4272a..0dd5d2a 100644
+--- a/lib/rendering/lpe/osl/optautomata.h
++++ b/lib/rendering/lpe/osl/optautomata.h
+@@ -33,7 +33,40 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 
+ #pragma once
+ 
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon); OIIO's headers
++// dispatch on them. Every TU including OIIO must agree on this state or struct
++// layouts differ across TUs.
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/ustring.h>
++#if defined(__aarch64__) && !defined(MOONRAY_ISA_NEON2X)
++// restore Platform.hh's masquerade for the remainder of this TU
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
+ 
+ #include <vector>
+ 
+diff --git a/lib/rendering/lpe/osl/oslclosure.h b/lib/rendering/lpe/osl/oslclosure.h
+index b313f41..fba78a3 100644
+--- a/lib/rendering/lpe/osl/oslclosure.h
++++ b/lib/rendering/lpe/osl/oslclosure.h
+@@ -38,7 +38,40 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #pragma once
+ 
+ #include <cstring>
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon); OIIO's headers
++// dispatch on them. Every TU including OIIO must agree on this state or struct
++// layouts differ across TUs.
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/ustring.h>
++#if defined(__aarch64__) && !defined(MOONRAY_ISA_NEON2X)
++// restore Platform.hh's masquerade for the remainder of this TU
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
+ #include "oslconfig.h"
+ 
+ OSL_NAMESPACE_ENTER
+diff --git a/lib/rendering/lpe/osl/oslconfig.h b/lib/rendering/lpe/osl/oslconfig.h
+index b984096..82f9b3d 100644
+--- a/lib/rendering/lpe/osl/oslconfig.h
++++ b/lib/rendering/lpe/osl/oslconfig.h
+@@ -38,7 +38,40 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #pragma once
+ 
+ // All the things we need from OpenImageIO
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon); OIIO's headers
++// dispatch on them. Every TU including OIIO must agree on this state or struct
++// layouts differ across TUs.
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/ustring.h>
++#if defined(__aarch64__) && !defined(MOONRAY_ISA_NEON2X)
++// restore Platform.hh's masquerade for the remainder of this TU
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
+ 
+ #define OSL_NAMESPACE_ENTER namespace moonray { namespace lpe { namespace osl {
+ #define OSL_NAMESPACE_EXIT } } }
 diff --git a/lib/rendering/pbr/CMakeLists.txt b/lib/rendering/pbr/CMakeLists.txt
 index 3101e16..40ada2d 100644
 --- a/lib/rendering/pbr/CMakeLists.txt

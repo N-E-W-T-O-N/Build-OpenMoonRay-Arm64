@@ -33,7 +33,40 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
+#ifdef __ARM_NEON__
+// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon); OIIO's headers
+// dispatch on them. Every TU including OIIO must agree on this state or struct
+// layouts differ across TUs.
+#define __IMMINTRIN_H
+#define __NMMINTRIN_H
+#define OIIO_NO_SSE 1
+#define OIIO_NO_AVX 1
+#define OIIO_NO_AVX2 1
+#undef __SSE__
+#undef __SSE2__
+#undef __SSE3__
+#undef __SSSE3__
+#undef __SSE4_1__
+#undef __SSE4_2__
+#undef __AVX__
+#undef __AVX2__
+#endif
 #include <OpenImageIO/ustring.h>
+#if defined(__aarch64__) && !defined(MOONRAY_ISA_NEON2X)
+// restore Platform.hh's masquerade for the remainder of this TU
+#ifndef __SSE3__
+#define __SSE3__
+#endif
+#ifndef __SSSE3__
+#define __SSSE3__
+#endif
+#ifndef __SSE4_1__
+#define __SSE4_1__
+#endif
+#ifndef __SSE4_2__
+#define __SSE4_2__
+#endif
+#endif
 
 #include <vector>
 
