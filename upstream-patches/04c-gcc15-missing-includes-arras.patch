@@ -1,0 +1,13 @@
+diff --git a/client/OrbitCam.h b/client/OrbitCam.h
+index 070a2db..757dc1b 100644
+--- a/client/OrbitCam.h
++++ b/client/OrbitCam.h
+@@ -3,6 +3,8 @@
+ #pragma once
+ #include "NavigationCam.h"
+ 
++#include <functional> // std::function (GCC 15 no longer includes transitively)
++
+ ///
+ /// Controls:
+ ///

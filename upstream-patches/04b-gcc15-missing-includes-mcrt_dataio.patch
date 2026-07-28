@@ -1,0 +1,12 @@
+diff --git a/lib/share/util/ClockDelta.h b/lib/share/util/ClockDelta.h
+index d172ece..5666d35 100644
+--- a/lib/share/util/ClockDelta.h
++++ b/lib/share/util/ClockDelta.h
+@@ -7,6 +7,7 @@
+ 
+ #include <mcrt_dataio/share/sock/SockServerInet.h>
+ 
++#include <cstdint> // uint64_t (GCC 15 no longer includes transitively)
+ #include <string>
+ 
+ namespace mcrt_dataio {
