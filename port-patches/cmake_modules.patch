@@ -1,0 +1,137 @@
+diff --git a/cmake/FindTBB.cmake b/cmake/FindTBB.cmake
+index 201dc94..c6ddc2d 100644
+--- a/cmake/FindTBB.cmake
++++ b/cmake/FindTBB.cmake
+@@ -46,6 +46,21 @@
+ # We use INTERFACE libraries, which are only supported in 3.x
+ cmake_minimum_required(VERSION 3.1)
+ 
++# oneTBB 2021+ installs its own CMake package config. Prefer it: if this module
++# hand-rolls TBB::* imported targets and a dependency (e.g. USD's pxrConfig)
++# later loads the official TBBConfig via find_dependency(TBB), TBBTargets.cmake
++# fatally errors with "Some (but not all) targets in this export set were
++# already defined". Delegating makes every consumer share one export set, and
++# re-loading the config is idempotent.
++find_package(TBB CONFIG QUIET)
++if(TBB_FOUND AND TARGET TBB::tbb)
++    if(NOT TBB_FIND_QUIETLY)
++        message(STATUS "FindTBB: using oneTBB package config (TBB ${TBB_VERSION}, ${TBB_DIR})")
++    endif()
++    get_target_property(TBB_INCLUDE_DIRS TBB::tbb INTERFACE_INCLUDE_DIRECTORIES)
++    return()
++endif()
++
+ # These two are used to automatically find the root and include directories.
+ set(_TBB_INCLUDE_SUBDIR "include")
+ set(_TBB_HEADER "tbb/tbb.h")
+@@ -353,15 +368,19 @@ function(rk_tbb_find_library COMPONENT_NAME BUILD_CONFIG)
+     list(APPEND LIB_PATHS
+       ${TBB_ROOT}/lib
+       ${TBB_ROOT}/lib/x86_64-linux-gnu
++      ${TBB_ROOT}/lib/aarch64-linux-gnu
+       ${TBB_ROOT}/lib64
+-      ${TBB_ROOT}/libx86_64-linux-gnu)
++      ${TBB_ROOT}/libx86_64-linux-gnu
++      ${TBB_ROOT}/libaarch64-linux-gnu)
+   endif()
+ 
+   # We prefer finding the versioned file on Unix so that the library path
+   # variable will not point to a symlink. This makes installing TBB as a
+   # dependency easier.
+   if (UNIX)
+-    set(LIB_NAME lib${LIB_NAME}.so.2 ${LIB_NAME})
++    # Prefer the versioned soname: oneTBB 2021+ ships .so.12, TBB 2020 ships .so.2.
++    # List .so.12 first (we use oneTBB 2022.3) then fall back, then unversioned.
++    set(LIB_NAME lib${LIB_NAME}.so.12 lib${LIB_NAME}.so.2 ${LIB_NAME})
+   endif()
+ 
+   find_library(${LIB_VAR}
+diff --git a/cmake/MoonrayDso.cmake b/cmake/MoonrayDso.cmake
+index 101f9d3..1d4436d 100644
+--- a/cmake/MoonrayDso.cmake
++++ b/cmake/MoonrayDso.cmake
+@@ -15,8 +15,7 @@ function(Moonray_dso_cxx_compile_options target)
+                 -fno-strict-aliasing            # TODO: add a note
+                 -fno-var-tracking-assignments   # Turn off variable tracking
+                 -fpermissive                    # Downgrade some diagnostics about nonconformant code from errors to warnings.
+-                -march=core-avx2                # Specify the name of the target architecture
+-                -mavx                           # x86 options
++                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
+                 -pipe                           # Use pipes rather than intermediate files.
+                 -pthread                        # Define additional macros required for using the POSIX threads library.
+                 -w                              # Inhibit all warning messages.
+@@ -40,8 +39,7 @@ function(Moonray_dso_cxx_compile_options target)
+         target_compile_options(${target}
+             # TODO: Some if not all of these should probably be PUBLIC
+             PRIVATE
+-                -march=core-avx2                # Specify the name of the target architecture
+-                -mavx                           # x86 options
++                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
+                 -fdelayed-template-parsing      # Shader.h has a template method that uses a moonray class which is no available to scene_rdl2 and is only used in moonray+
+                 -Wno-deprecated-declarations    # disable auto_ptr deprecated warnings from log4cplus-1.
+                 -Wno-unused-value               # For opt-debug build MNRY_VERIFY(exp) the value is not used.
+@@ -50,8 +48,7 @@ function(Moonray_dso_cxx_compile_options target)
+         target_compile_options(${target}
+             # TODO: Some if not all of these should probably be PUBLIC
+             PRIVATE
+-                -march=core-avx2                # Specify the name of the target architecture
+-                -mavx                           # x86 options
++                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
+         )
+     endif()
+ endfunction()
+diff --git a/cmake/OMR_Platform.cmake b/cmake/OMR_Platform.cmake
+index 6a38c8f..d5122fc 100644
+--- a/cmake/OMR_Platform.cmake
++++ b/cmake/OMR_Platform.cmake
+@@ -25,6 +25,13 @@ if(CMAKE_SYSTEM_NAME IN_LIST WindowsPlatforms)
+     set(IsWindowsPlatform TRUE)
+ endif()
+ 
++# ================================================
++# CPU architecture (arch != OS: Linux may be aarch64)
++# ================================================
++if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|ARM64")
++    set(IsArm64 TRUE)
++endif()
++
+ # ================================================
+ # Platform-specific globals
+ # ================================================
+@@ -68,7 +75,21 @@ if(IsDarwinPlatform)
+     set(GLOBAL_ISPC_FLAGS -D__aarch64__ -D__APPLE__ -D__ARM_NEON__)
+     set(GLOBAL_ISPC_INSTRUCTION_SETS neon-i32x4)
+     set(CMAKE_OSX_ARCHITECTURES arm64)
+-else() # Linux/Windows
++elseif(IsLinuxPlatform AND IsArm64)
++    # Linux on aarch64/NEON. GCC on aarch64 defines __ARM_NEON (no trailing
++    # underscores) but MoonRay's code gates on __ARM_NEON__, so define it the
++    # same way x86 defines __AVX__. No __AVX__ here. Keep the Linux linker
++    # conventions (ELF rpaths + new-dtags), unlike the Darwin/Mach-O branch.
++    set(GLOBAL_CPP_FLAGS __ARM_NEON__)
++    # --no-as-needed: Ubuntu defaults to --as-needed, which drops libraries an
++    # executable doesn't reference directly — but MoonRay's rt<->pbr circular
++    # design relies on executables carrying both (rt.so has undefined pbr syms).
++    # Rocky9/upstream never sees this because as-needed is off there.
++    set(GLOBAL_LINK_FLAGS "-Wl,--enable-new-dtags" "-Wl,--no-as-needed")
++    set(GLOBAL_INSTALL_RPATH "$ORIGIN" "$ORIGIN/../lib64" "${COMPILER_LIBRARY_DIR}")
++    set(GLOBAL_ISPC_FLAGS -D__aarch64__ -D__ARM_NEON__)
++    set(GLOBAL_ISPC_INSTRUCTION_SETS neon-i32x4)
++else() # Linux/Windows on x86-64
+     set(GLOBAL_CPP_FLAGS __AVX__)
+     set(GLOBAL_LINK_FLAGS "-Wl,--enable-new-dtags")
+     set(GLOBAL_INSTALL_RPATH "$ORIGIN" "$ORIGIN/../lib64" "${COMPILER_LIBRARY_DIR}")
+@@ -79,7 +100,12 @@ endif()
+ # Options
+ # ================================================
+ if(IsLinuxPlatform)
+-    option(MOONRAY_USE_OPTIX "Whether to enable XPU mode and Optix denoising" YES)
++    # OptiX/XPU needs CUDA (x86 + NVIDIA only); default OFF on aarch64.
++    if(IsArm64)
++        option(MOONRAY_USE_OPTIX "Whether to enable XPU mode and Optix denoising" NO)
++    else()
++        option(MOONRAY_USE_OPTIX "Whether to enable XPU mode and Optix denoising" YES)
++    endif()
+ elseif(IsDarwinPlatform)
+     option(MOONRAY_USE_METAL "Whether to enable XPU mode and OIDN Metal denoising" YES)
+ endif()

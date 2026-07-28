@@ -1,0 +1,573 @@
+diff --git a/cmake/SceneRdl2CompileOptions.cmake b/cmake/SceneRdl2CompileOptions.cmake
+index 4d98ec6..1319f47 100644
+--- a/cmake/SceneRdl2CompileOptions.cmake
++++ b/cmake/SceneRdl2CompileOptions.cmake
+@@ -16,10 +16,7 @@ function(SceneRdl2_cxx_compile_options target)
+                 -fno-omit-frame-pointer         # TODO: add a note
+                 -fno-strict-aliasing            # TODO: add a note
+                 -fno-var-tracking-assignments   # Turn off variable tracking
+-                -march=core-avx2                # Specify the name of the target architecture
+-                -mavx                           # x86 options
+-                -mfma                           # x86 options
+-                -msse                           # x86 options
++                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
+                 -pipe                           # Use pipes rather than intermediate files.
+                 -pthread                        # Define additional macros required for using the POSIX threads library.
+                 -Wall                           # Enable most warning messages.
+@@ -49,7 +46,7 @@ function(SceneRdl2_cxx_compile_options target)
+         target_compile_options(${target}
+             # TODO: Some if not all of these should probably be PUBLIC
+             PRIVATE
+-                -march=core-avx2                # Specify the name of the target architecture
++                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
+                 -fdelayed-template-parsing      # Shader.h has a template method that uses a moonray class which is no available to scene_rdl2 and is only used in moonray+
+                 -Wno-deprecated-declarations    # disable auto_ptr deprecated warnings from log4cplus-1.
+                 -Wno-unused-value               # caused by opt-debug build and MNRY_VERIFY.
+@@ -63,7 +60,7 @@ function(SceneRdl2_cxx_compile_options target)
+         target_compile_options(${target}
+             # TODO: Some if not all of these should probably be PUBLIC
+             PRIVATE
+-                -march=core-avx2                # Specify the name of the target architecture
++                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
+         )
+     endif()
+ endfunction()
+diff --git a/cmd/mcrt_cmd/shmFbDump/main.cc b/cmd/mcrt_cmd/shmFbDump/main.cc
+index 949ff94..c8e8697 100644
+--- a/cmd/mcrt_cmd/shmFbDump/main.cc
++++ b/cmd/mcrt_cmd/shmFbDump/main.cc
+@@ -9,23 +9,25 @@
+ #include <sstream>
+ #include <sys/shm.h>
+ 
+-#ifdef __APPLE__
++#if defined(__aarch64__) // any aarch64 (was __APPLE__ — broke Linux arm64)
+ #include <arm_neon.h>
+-#else // else __APPLE__
+-#ifdef __INTEL_COMPILER 
++#else // x86
++#ifdef __INTEL_COMPILER
+ // We don't need any include for half float instructions
+ #else // else __INTEL_COMPILER
+ #include <x86intrin.h>          // _mm_cvtps_ph, _cvtph_ps : for GCC build
+ #endif // end !__INTEL_COMPILER
+-#endif 
++#endif
+ 
+ float    
+ h16tof32(const unsigned short h)
+ {
+ #if defined(__ARM_NEON__)
+-	float output;
+-	vst1q_f32(&output, vcvt_f32_f16(vld1_u16(&h)));
+-	return output;
++    // GCC needs the explicit u16->f16 reinterpret; also the old code
++    // vst1q_f32'd 4 floats into a single float (out-of-bounds write) —
++    // extract lane 0 instead.
++    const float16x4_t h4 = vreinterpret_f16_u16(vdup_n_u16(h));
++    return vgetq_lane_f32(vcvt_f32_f16(h4), 0);
+ #else
+     return _cvtsh_ss(h); // Convert half 16bit float to full 32bit float
+ #endif
+diff --git a/lib/common/arm/avx2neon.h b/lib/common/arm/avx2neon.h
+index dd321d3..6f62213 100644
+--- a/lib/common/arm/avx2neon.h
++++ b/lib/common/arm/avx2neon.h
+@@ -158,7 +158,8 @@ AVX2NEON_ABI
+ __m256i _mm256_setzero_si256()
+ {
+     __m256i res;
+-    res.lo = res.hi = vdupq_n_s32(0);
++    res.lo = res.hi = vreinterpretq_s64_s32(vdupq_n_s32(0));
++//    res.lo = res.hi = vdupq_n_s32(0);
+     return res;
+ }
+ 
+@@ -203,6 +204,7 @@ __m256i _mm256_castsi128_si256 (__m128i a)
+ {
+     __m256i res;
+     res.lo = a ;
++//  res.hi = vreinterpretq_s64_s32(vdupq_n_s32(0));    
+     res.hi = vdupq_n_s32(0);
+     return res;
+ }
+@@ -246,9 +248,13 @@ AVX2NEON_ABI
+ __m256i _mm256_set1_epi32 (int a)
+ {
+     __m256i res;
+-    res.lo = res.hi = vdupq_n_s32(a);
++    res.lo = res.hi = vreinterpretq_s64_s32(vdupq_n_s32(a));
++    //res.lo = res.hi = vdupq_n_s32(a);
+     return res;
+ }
++
++
++
+ AVX2NEON_ABI
+ __m256i _mm256_set1_epi8 (int a)
+ {
+@@ -433,8 +439,10 @@ AVX2NEON_ABI
+ __m256i _mm256_abs_epi32(__m256i a)
+ {
+    __m256i res;
+-   res.lo = vabsq_s32(a.lo);
+-   res.hi = vabsq_s32(a.hi);
++   res.lo = vreinterpretq_s64_s32(vabsq_s32(vreinterpretq_s32_s64(a.lo)));
++   res.hi = vreinterpretq_s64_s32(vabsq_s32(vreinterpretq_s32_s64(a.hi)));
++   //res.lo = vabsq_s32(a.lo);
++   //res.hi = vabsq_s32(a.hi);
+    return res;
+ }
+ 
+diff --git a/lib/common/arm/emulation.h b/lib/common/arm/emulation.h
+index ba2cbe4..60bc66b 100644
+--- a/lib/common/arm/emulation.h
++++ b/lib/common/arm/emulation.h
+@@ -1,64 +1,61 @@
+-// Copyright 2009-2020 Intel Corporation
++// Copyright 2009-2025 DreamWorks Animation LLC and Intel Corporation
+ // SPDX-License-Identifier: Apache-2.0
+ 
+ #pragma once
+ 
+ /* Make precision match SSE, at the cost of some performance */
+-#if !defined(__aarch64__)
+-#  define SSE2NEON_PRECISE_DIV 1
++#if !defined(__aarch64__) && !defined(__ARM_NEON__)
++#  define SSE2NEON_PRECISE_DIV  1
+ #  define SSE2NEON_PRECISE_SQRT 1
+ #endif
+ 
+ #include "sse2neon.h"
+ 
+-__forceinline __m128 _mm_abs_ps(__m128 a) { return vabsq_f32(a); }
+-
+-__forceinline __m128 _mm_fmadd_ps (__m128 a, __m128 b, __m128 c) { return vfmaq_f32(c, a, b); }
+-__forceinline __m128 _mm_fnmadd_ps(__m128 a, __m128 b, __m128 c) { return vfmsq_f32(c, a, b); }
+-__forceinline __m128 _mm_fnmsub_ps(__m128 a, __m128 b, __m128 c) { return vnegq_f32(vfmaq_f32(c, a, b)); }
+-__forceinline __m128 _mm_fmsub_ps (__m128 a, __m128 b, __m128 c) { return vnegq_f32(vfmsq_f32(c, a, b)); }
+ 
+-__forceinline __m128 _mm_broadcast_ss (float const * mem_addr)
+-{
+-    return vdupq_n_f32(*mem_addr);
++/* Safe conversion helpers must be declared before use */
++static inline __m128i safe_convert_s32_to_m128i(int32x4_t v) {
++    return vreinterpretq_s64_s32(v);
++}
++static inline __m128i safe_convert_s16_to_m128i(int16x8_t v) {
++    return vreinterpretq_s64_s16(v);
++}
++static inline __m128i safe_convert_s8_to_m128i(int8x16_t v) {
++    return vreinterpretq_s64_s8(v);
+ }
+ 
+-// AVX2 emulation leverages Intel FMA defs above.  Include after them.
+-#include "avx2neon.h"
++// Basic SSE float intrinsics mapping
++__forceinline __m128 _mm_abs_ps(__m128 a) { return vabsq_f32(a); }
++__forceinline __m128 _mm_fmadd_ps(__m128 a, __m128 b, __m128 c) { return vfmaq_f32(c, a, b); }
++__forceinline __m128 _mm_fnmadd_ps(__m128 a, __m128 b, __m128 c) { return vfmsq_f32(c, a, b); }
++__forceinline __m128 _mm_fnmsub_ps(__m128 a, __m128 b, __m128 c) { return vnegq_f32(vfmaq_f32(c, a, b)); }
++__forceinline __m128 _mm_fmsub_ps(__m128 a, __m128 b, __m128 c) { return vnegq_f32(vfmsq_f32(c, a, b)); }
++__forceinline __m128 _mm_broadcast_ss(float const *mem_addr) { return vdupq_n_f32(*mem_addr); }
+ 
+ /* Dummy defines for floating point control */
+-#define _MM_MASK_MASK 0x1f80
+-#define _MM_MASK_DIV_ZERO 0x200
+-// #define _MM_FLUSH_ZERO_ON 0x8000
+-#define _MM_MASK_DENORM 0x100
++#define _MM_MASK_MASK        0x1f80
++#define _MM_MASK_DIV_ZERO    0x200
++#define _MM_MASK_DENORM      0x100
+ #define _MM_SET_EXCEPTION_MASK(x)
+-// #define _MM_SET_FLUSH_ZERO_MODE(x)
+-
+-// #defined in sse2neon.h
+-//__forceinline int _mm_getcsr()
+-//{
+-//  return 0;
+-//}
+ 
+-// #defined in sse2neon.h
+-//__forceinline void _mm_mfence()
+-//{
+-//  __sync_synchronize();
+-//}
++/*
++  NOTE: AVX2NEON is removed. Only SSE2NEON is used under AArch64.
++*/
++// AVX2 emulation leverages Intel FMA defs above.  Include after them.
++//#include "avx2neon.h"
+ 
+ __forceinline __m128i _mm_load4epu8_epi32(__m128i *ptr)
+ {
+     uint8x8_t  t0 = vld1_u8((uint8_t*)ptr);
+     uint16x8_t t1 = vmovl_u8(t0);
+     uint32x4_t t2 = vmovl_u16(vget_low_u16(t1));
+-    return vreinterpretq_s32_u32(t2);
++    return safe_convert_s32_to_m128i(vreinterpretq_s32_u32(t2));
+ }
+ 
+ __forceinline __m128i _mm_load4epu16_epi32(__m128i *ptr)
+ {
+     uint16x8_t t0 = vld1q_u16((uint16_t*)ptr);
+     uint32x4_t t1 = vmovl_u16(vget_low_u16(t0));
+-    return vreinterpretq_s32_u32(t1);
++    return safe_convert_s32_to_m128i(vreinterpretq_s32_u32(t1));
+ }
+ 
+ __forceinline __m128i _mm_load4epi8_f32(__m128i *ptr)
+@@ -67,7 +64,7 @@ __forceinline __m128i _mm_load4epi8_f32(__m128i *ptr)
+     int16x8_t   t1 = vmovl_s8(t0);
+     int32x4_t   t2 = vmovl_s16(vget_low_s16(t1));
+     float32x4_t t3 = vcvtq_f32_s32(t2);
+-    return vreinterpretq_s32_f32(t3);
++    return safe_convert_s32_to_m128i(vreinterpretq_s32_f32(t3));
+ }
+ 
+ __forceinline __m128i _mm_load4epu8_f32(__m128i *ptr)
+@@ -75,7 +72,7 @@ __forceinline __m128i _mm_load4epu8_f32(__m128i *ptr)
+     uint8x8_t   t0 = vld1_u8((uint8_t*)ptr);
+     uint16x8_t  t1 = vmovl_u8(t0);
+     uint32x4_t  t2 = vmovl_u16(vget_low_u16(t1));
+-    return vreinterpretq_s32_u32(t2);
++    return safe_convert_s32_to_m128i(vreinterpretq_s32_u32(t2));
+ }
+ 
+ __forceinline __m128i _mm_load4epi16_f32(__m128i *ptr)
+@@ -83,5 +80,5 @@ __forceinline __m128i _mm_load4epi16_f32(__m128i *ptr)
+     int16x8_t   t0 = vld1q_s16((int16_t*)ptr);
+     int32x4_t   t1 = vmovl_s16(vget_low_s16(t0));
+     float32x4_t t2 = vcvtq_f32_s32(t1);
+-    return vreinterpretq_s32_f32(t2);
++    return safe_convert_s32_to_m128i(vreinterpretq_s32_f32(t2));
+ }
+diff --git a/lib/common/arm/sse2neon.h b/lib/common/arm/sse2neon.h
+index 643391d..4531bec 100644
+--- a/lib/common/arm/sse2neon.h
++++ b/lib/common/arm/sse2neon.h
+@@ -18,7 +18,7 @@
+ //   Sebastian Pop <spop@amazon.com>
+ //   Developer Ecosystem Engineering <DeveloperEcosystemEngineering@apple.com>
+ //   Danila Kutenin <danilak@google.com>
+-//   François Turban (JishinMaster) <francois.turban@gmail.com>
++//   FranÃ§ois Turban (JishinMaster) <francois.turban@gmail.com>
+ //   Pei-Hsuan Hung <afcidk@gmail.com>
+ //   Yang-Hao Yuan <yuanyanghau@gmail.com>
+ //   Syoyo Fujita <syoyo@lighttransport.com>
+@@ -1571,7 +1571,12 @@ FORCE_INLINE __m64 _mm_cvtps_pi8(__m128 a)
+ // packed half-precision (16-bit) floating-point elements, and store the results in dst. 
+ FORCE_INLINE __m128i _mm_cvtps_ph (__m128 a, int imm8)
+ {
+-    return vcombine_f16(vcvt_f16_f32(a), vdup_n_f32(0));
++    // GCC (unlike Apple Clang) refuses implicit NEON vector-type conversions:
++    // upper half must be a real float16x4_t and the result reinterpreted to
++    // __m128i (int64x2_t). Reinterpreting a zero vector is bit-exact.
++    (void)imm8;
++    return vreinterpretq_s64_f16(
++        vcombine_f16(vcvt_f16_f32(a), vreinterpret_f16_f32(vdup_n_f32(0))));
+ }
+ 
+ // Convert packed unsigned 16-bit integers in a to packed single-precision
+diff --git a/lib/common/fb_util/TileExtrapolation.h b/lib/common/fb_util/TileExtrapolation.h
+index 024c07b..abbc077 100644
+--- a/lib/common/fb_util/TileExtrapolation.h
++++ b/lib/common/fb_util/TileExtrapolation.h
+@@ -131,12 +131,12 @@ protected:
+         // bit scan forward : This function does not work when mask64 == 0 because bsf return undefined value.
+         //
+         uint64_t result;
+-        #ifdef __APPLE__ // TODO: this was causing trouble with the viewport going white for anything not full32, re-check
++        #if !defined(__x86_64__) // bsfq is x86-only asm; gate on arch, not OS (Linux arm64 took the asm path)
+         result =  __builtin_ctzll(mask64);
+         if (mask64 == 0) return 0;
+         #else
+         asm volatile("bsfq %1, %0": "=r"(result): "r"(mask64));
+-        #endif 
++        #endif
+         return result;
+     }
+ }; // TileExtrapolationPhaseManager
+@@ -552,11 +552,11 @@ TileExtrapolation::countRightZeroBit(uint64_t mask64) const
+     // bit scan forward : counting zero bits on right side
+     //
+     uint64_t result;
+-#ifdef __APPLE__ // TODO: double check this
++#if !defined(__x86_64__) // bsfq is x86-only asm; gate on arch, not OS
+         result =  __builtin_ctzll(mask64);
+     #else
+     asm volatile("bsfq %1, %0": "=r"(result): "r"(mask64));
+-    #endif 
++    #endif
+     return result;
+ }
+ 
+diff --git a/lib/common/grid_util/AffinityResourceControl.cc b/lib/common/grid_util/AffinityResourceControl.cc
+index ce6672d..09466ff 100644
+--- a/lib/common/grid_util/AffinityResourceControl.cc
++++ b/lib/common/grid_util/AffinityResourceControl.cc
+@@ -5,6 +5,7 @@
+ #include "NumaUtil.h"
+ #include "ShmAffinityInfo.h"
+ 
++#include <algorithm> // std::sort, std::max_element (GCC 15 no longer includes transitively)
+ #include <iostream> // debug
+ #include <unistd.h> // getpid()
+ #include <unordered_set>
+diff --git a/lib/common/grid_util/BinPacketDictionary.h b/lib/common/grid_util/BinPacketDictionary.h
+index d7e6bf5..4e1336c 100644
+--- a/lib/common/grid_util/BinPacketDictionary.h
++++ b/lib/common/grid_util/BinPacketDictionary.h
+@@ -5,6 +5,7 @@
+ #include <scene_rdl2/render/cache/ValueContainerDequeue.h>
+ #include <scene_rdl2/render/cache/ValueContainerEnqueue.h>
+ 
++#include <functional> // std::function (GCC 15 no longer includes transitively)
+ #include <string>
+ 
+ namespace scene_rdl2 {
+diff --git a/lib/common/grid_util/NumaUtil.cc b/lib/common/grid_util/NumaUtil.cc
+index 7d88815..c43b533 100644
+--- a/lib/common/grid_util/NumaUtil.cc
++++ b/lib/common/grid_util/NumaUtil.cc
+@@ -509,10 +509,18 @@ numaNodeMBind(const unsigned numaNodeId,
+                      nodeMask.data(),
+                      nodeMask.size() * BITS_PER_ULONG,
+                      0) != 0) {
+-        munmap(memory, size);
+-        std::ostringstream ostr;
+-        ostr << "numaNodeMBInd() sysCallMBind() failed. numaNodeId:" << numaNodeId << " size:" << size;
+-        throw scene_rdl2::except::RuntimeError(ostr.str());
++        // mbind() is unavailable or restricted in some environments (containers
++        // without CAP_SYS_NICE, seccomp-filtered sandboxes, emulators, kernels
++        // without CONFIG_NUMA). NUMA binding is an optimization, not a
++        // correctness requirement: keep the allocation and let the kernel place
++        // pages by default rather than aborting the render.
++        static bool warned = false;
++        if (!warned) {
++            warned = true;
++            std::cerr << "WARNING: mbind() unavailable (errno=" << errno << "); "
++                      << "continuing without NUMA memory binding.\n";
++        }
++        return memory;
+     }
+     return memory;
+ }
+diff --git a/lib/common/grid_util/PackTiles.cc b/lib/common/grid_util/PackTiles.cc
+index 2f49b2d..b7f37fc 100644
+--- a/lib/common/grid_util/PackTiles.cc
++++ b/lib/common/grid_util/PackTiles.cc
+@@ -53,13 +53,13 @@
+ #endif // end DEBUG_MODE
+ 
+ 
+-#ifndef __APPLE__
+-#ifdef __INTEL_COMPILER 
++#if defined(__aarch64__)
++#include <arm_neon.h>           // vcvt_f32_f16 etc. for the NEON half-float paths
++#elif defined(__INTEL_COMPILER)
+ // We don't need any include for half float instructions
+-#else // else __INTEL_COMPILER
++#else
+ #include <x86intrin.h>          // _mm_cvtps_ph, _cvtph_ps : for GCC build
+-#endif // end !__INTEL_COMPILER
+-#endif 
++#endif
+ 
+ //#define DEBUG_MSG_SIZEDUMP
+ 
+@@ -608,10 +608,11 @@ private:
+ 
+     inline static unsigned short ftoh(const float f)
+     {
+-#if defined(__ARM_NEON__)   // TODO: Verify this
+-	__fp16 output;
+-	vst1_f16(&output, vcvt_f16_f32(vld1q_f32(&f)));
+-	return output;
++#if defined(__ARM_NEON__)
++        // verified impl: dup the scalar into a vector, convert, extract lane 0.
++        // (The previous code vld1q_f32'd 4 floats from &f — out-of-bounds read.)
++        const float16x4_t h4 = vcvt_f16_f32(vdupq_n_f32(f));
++        return vget_lane_u16(vreinterpret_u16_f16(h4), 0);
+ #else
+         return _cvtss_sh(f, 0); // Convert full 32bit float to half 16bit float
+                                 // An immediate value controlling rounding using bits : 0=Nearest
+@@ -620,10 +621,9 @@ private:
+ 
+     inline static float htof(const unsigned short h)
+     {
+-#if defined(__ARM_NEON__)   // TODO: Verify this
+-	float output;
+-	vst1q_f32(&output, vcvt_f32_f16(vld1_u16(&h)));
+-	return output;
++#if defined(__ARM_NEON__)
++        const float16x4_t h4 = vreinterpret_f16_u16(vdup_n_u16(h));
++        return vgetq_lane_f32(vcvt_f32_f16(h4), 0);
+ #else
+         return _cvtsh_ss(h); // Convert half 16bit float to full 32bit float
+ #endif
+diff --git a/lib/common/grid_util/ShmFb.cc b/lib/common/grid_util/ShmFb.cc
+index b99480d..a1d12b2 100644
+--- a/lib/common/grid_util/ShmFb.cc
++++ b/lib/common/grid_util/ShmFb.cc
+@@ -10,14 +10,17 @@
+ #ifdef __APPLE__
+ #include <arm_neon.h>
+ #include <sys/sysctl.h>
+-#else // else __APPLE__
+-#ifdef __INTEL_COMPILER 
++#elif defined(__aarch64__) // Linux arm64
++#include <arm_neon.h>
++#include <fstream>
++#else // Linux/Windows x86
++#ifdef __INTEL_COMPILER
+ // We don't need any include for half float instructions
+ #else // else __INTEL_COMPILER
+ #include <x86intrin.h>          // _mm_cvtps_ph, _cvtph_ps : for GCC build
+ #endif // end !__INTEL_COMPILER
+ #include <fstream>
+-#endif 
++#endif
+ 
+ namespace scene_rdl2 {
+ namespace grid_util {
+diff --git a/lib/common/platform/Platform.hh b/lib/common/platform/Platform.hh
+index 8117d65..a6e0f1f 100644
+--- a/lib/common/platform/Platform.hh
++++ b/lib/common/platform/Platform.hh
+@@ -167,7 +167,12 @@
+     #error Unknown vector width
+ #endif
+ 
+-#if __ARM_NEON__
++// 128-byte cache lines are an Apple M-series trait; ARM Cortex-A (and x86)
++// use 64. Keying 128 off __ARM_NEON__ broke Linux aarch64 (RayDifferentialv
++// static assert: CACHE_ALIGN-rounded size vs sizeof*VLEN). Also use #undef to
++// avoid the redefinition warning against Platform.h's baseline 64u.
++#undef CACHE_LINE_SIZE
++#if defined(__ARM_NEON__) && defined(__APPLE__)
+ #define CACHE_LINE_SIZE        128u
+ #else
+ #define CACHE_LINE_SIZE        64u
+diff --git a/lib/common/rec_time/RecTime.h b/lib/common/rec_time/RecTime.h
+index b87c384..ae332bb 100644
+--- a/lib/common/rec_time/RecTime.h
++++ b/lib/common/rec_time/RecTime.h
+@@ -13,7 +13,20 @@
+ #include <mach/mach_time.h> // mach_timebase_info(), mach_absolute_time()
+ #else // else of PLATFORM_APPLE
+ #include <unistd.h> // usleep()
++#if defined(__x86_64__)
+ #include <x86intrin.h> // __rdtscp()
++#elif defined(__aarch64__)
++// ARM generic timer: cntvct_el0 is constant-rate and architecturally
++// synchronized across cores (no NUMA/migration skew unlike x86 TSC).
++namespace scene_rdl2 { namespace rec_time { namespace detail {
++inline uint64_t readCntvct()
++{
++    uint64_t v;
++    asm volatile("isb; mrs %0, cntvct_el0" : "=r"(v));
++    return v;
++}
++}}} // namespace scene_rdl2::rec_time::detail
++#endif
+ #endif // end of Non PLATFORM_APPLE
+ 
+ namespace scene_rdl2 {
+@@ -158,16 +171,32 @@ public:
+         //     ...
+         //   double sec = (double)recTime.end() * tscSecPerCycle; // timing measurement end
+         //
++#if defined(__aarch64__)
++        const uint64_t c0 = detail::readCntvct();
++        const uint64_t ns0 = RecTimeVDSO::getCurrentNanoSec(); // ns
++        std::this_thread::sleep_for(std::chrono::milliseconds(100));
++        const uint64_t c1 = detail::readCntvct();
++        const uint64_t ns1 = RecTimeVDSO::getCurrentNanoSec(); // ns
++#else
+         const uint64_t c0 = __rdtsc();
+         const uint64_t ns0 = RecTimeVDSO::getCurrentNanoSec(); // ns
+         std::this_thread::sleep_for(std::chrono::milliseconds(100));
+         const uint64_t c1 = __rdtsc();
+         const uint64_t ns1 = RecTimeVDSO::getCurrentNanoSec(); // ns
++#endif
+         const double deltaNs = static_cast<double>(ns1 - ns0);
+         const double tscFreq = static_cast<double>(c1 - c0) / deltaNs;
+         return 1.0 / tscFreq / 1e9;
+     }
+ 
++#if defined(__aarch64__)
++    // cntvct_el0 is globally synchronized -> no cpu-migration guard needed
++    void start() { mStartTime = detail::readCntvct(); }
++    uint64_t end() // timeSec = (double)end() * secPerCycle
++    {
++        return detail::readCntvct() - mStartTime;
++    }
++#else
+     void start() { mStartTime = __rdtscp(&mCpuId); }
+     uint64_t end() // timeSec = (double)end() * secPerCycle
+     {
+@@ -176,6 +205,7 @@ public:
+         if (cpuId != mCpuId) return 0ull;
+         return t - mStartTime;
+     }
++#endif
+ 
+ protected:
+     unsigned mCpuId {0};
+diff --git a/lib/render/util/Atomic128.h b/lib/render/util/Atomic128.h
+index 07997f3..a8437f0 100644
+--- a/lib/render/util/Atomic128.h
++++ b/lib/render/util/Atomic128.h
+@@ -15,7 +15,7 @@
+ namespace scene_rdl2 {
+ namespace util {    
+ 
+-#ifdef PLATFORM_APPLE
++#if defined(__aarch64__) // casp is ARMv8.1+ LSE — arch-gated, not OS-gated (was PLATFORM_APPLE)
+ 
+ inline bool
+ atomicCmpxchg128(volatile void* ptr, void* expected, void* desired)
+@@ -63,7 +63,7 @@ atomicCmpxchg128(volatile void* ptr, void* expected, void* desired)
+     return success;
+ }
+ 
+-#else // else of PLATFORM_APPLE
++#else // x86-64: cmpxchg16b
+ 
+ inline bool
+ atomicCmpxchg128(volatile void* ptr, void* expected, void* desired)
+diff --git a/mod/python/py_scene_rdl2/CMakeLists.txt b/mod/python/py_scene_rdl2/CMakeLists.txt
+index 4508515..958de88 100644
+--- a/mod/python/py_scene_rdl2/CMakeLists.txt
++++ b/mod/python/py_scene_rdl2/CMakeLists.txt
+@@ -13,10 +13,15 @@ endif()
+ find_package(Python COMPONENTS Interpreter Development)
+ find_package(Boost REQUIRED
+   COMPONENTS
+-    system
+     "${BOOST_PYTHON_COMPONENT_NAME}"
+     date_time
+     chrono)
++# Boost.System: header-only since 1.69, component removed in Boost >= 1.89
++if(NOT TARGET Boost::system)
++    add_library(Boost::system INTERFACE IMPORTED)
++    set_target_properties(Boost::system PROPERTIES
++        INTERFACE_LINK_LIBRARIES Boost::headers)
++endif()
+ 
+ add_library(${component} SHARED "")
+ add_library(${PROJECT_NAME}::${component} ALIAS ${component})
+diff --git a/tests/lib/common/simd/test_simd.cc b/tests/lib/common/simd/test_simd.cc
+index 964dad2..1ee511e 100644
+--- a/tests/lib/common/simd/test_simd.cc
++++ b/tests/lib/common/simd/test_simd.cc
+@@ -1,7 +1,7 @@
+ // Copyright 2023-2024 DreamWorks Animation LLC
+ // SPDX-License-Identifier: Apache-2.0
+ 
+-#ifndef __APPLE__
++#if defined(__x86_64__) // x86 SVML/AVX-specific tests (was !__APPLE__; broke Linux arm64)
+ #include "test_simd.h"
+ #include <scene_rdl2/common/math/simd.h>
+ #include <iomanip>

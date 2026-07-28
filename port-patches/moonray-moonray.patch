@@ -1,0 +1,1064 @@
+diff --git a/cmake/MoonrayCompileOptions.cmake b/cmake/MoonrayCompileOptions.cmake
+index b719930..a3b1815 100644
+--- a/cmake/MoonrayCompileOptions.cmake
++++ b/cmake/MoonrayCompileOptions.cmake
+@@ -13,8 +13,7 @@ function(${PROJECT_NAME}_cxx_compile_options target)
+                 -fno-strict-aliasing            # TODO: add a note
+                 -fno-var-tracking-assignments   # Turn off variable tracking
+                 -fpermissive                    # Downgrade some diagnostics about nonconformant code from errors to warnings.
+-                -march=core-avx2                # Specify the name of the target architecture
+-                -mavx                           # x86 options
++                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
+                 -pipe                           # Use pipes rather than intermediate files.
+                 -pthread                        # Define additional macros required for using the POSIX threads library.
+                 -w                              # Inhibit all warning messages.
+@@ -38,7 +37,7 @@ function(${PROJECT_NAME}_cxx_compile_options target)
+         target_compile_options(${target}
+             # TODO: Some if not all of these should probably be PUBLIC
+             PRIVATE
+-                -march=core-avx2                # Specify the name of the target architecture
++                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
+                 -fdelayed-template-parsing      # Shader.h has a template method that uses a moonray class which is no available to scene_rdl2 and is only used in moonray+
+                 -Wno-deprecated-declarations    # disable auto_ptr deprecated warnings from log4cplus-1.
+                 -Wno-unused-value               # caused by opt-debug build and MNRY_VERIFY.
+@@ -55,8 +54,7 @@ function(${PROJECT_NAME}_cxx_compile_options target)
+         target_compile_options(${target}
+             # TODO: Some if not all of these should probably be PUBLIC
+             PRIVATE
+-                -march=core-avx2                # Specify the name of the target architecture
+-                -mavx
++                $<IF:$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},aarch64>,-march=armv8.2-a,-march=core-avx2>                # Specify the name of the target architecture
+                 -Qoption,cpp,--print_include_stack
+                 -fmerge-debug-strings
+                 -fexceptions                    # Enable exception handling.
+diff --git a/cmd/denoise_cmd/main.cc b/cmd/denoise_cmd/main.cc
+index dde0002..c6e2be0 100644
+--- a/cmd/denoise_cmd/main.cc
++++ b/cmd/denoise_cmd/main.cc
+@@ -17,11 +17,43 @@
+ #define OIIO_NO_SSE 1
+ #define OIIO_NO_AVX 1
+ #define OIIO_NO_AVX2 1
++// GCC on Linux aarch64: the include-guard trick above only works for clang
++// (GCC's immintrin guard differs and the header doesn't even exist on arm).
++// OIIO's vendored farmhash.h does `#if defined(__SSSE3__) ... #include
++// <immintrin.h>`, and Platform.hh deliberately defines the SSE macros on
++// aarch64 (ISA masquerade for sse2neon). Undefine them here: moonray headers
++// above are already preprocessed, and OIIO must take its generic paths.
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
+ #endif
+ 
+ #include <OpenImageIO/imageio.h>
+ #include <OpenImageIO/imagebuf.h>
+ #include <OpenImageIO/imagebufalgo.h>
++// Restore Platform.hh's aarch64 ISA masquerade (undef'd above only so OIIO
++// headers take generic paths). Later headers dispatch on these (geom/Types.h).
++#if defined(__aarch64__)
++  #ifndef MOONRAY_ISA_NEON2X
++    #ifndef __SSE3__
++    #define __SSE3__
++    #endif
++    #ifndef __SSSE3__
++    #define __SSSE3__
++    #endif
++    #ifndef __SSE4_1__
++    #define __SSE4_1__
++    #endif
++    #ifndef __SSE4_2__
++    #define __SSE4_2__
++    #endif
++  #endif
++#endif
+ 
+ 
+ //---------------------------------------------------------------------------
+diff --git a/dso/displayfilter/ImageDisplayFilter/ImageDisplayFilter.cc b/dso/displayfilter/ImageDisplayFilter/ImageDisplayFilter.cc
+index f6f5845..d4b7a45 100644
+--- a/dso/displayfilter/ImageDisplayFilter/ImageDisplayFilter.cc
++++ b/dso/displayfilter/ImageDisplayFilter/ImageDisplayFilter.cc
+@@ -23,12 +23,44 @@
+ #define OIIO_NO_SSE 1
+ #define OIIO_NO_AVX 1
+ #define OIIO_NO_AVX2 1
++// GCC on Linux aarch64: the include-guard trick above only works for clang
++// (GCC's immintrin guard differs and the header doesn't even exist on arm).
++// OIIO's vendored farmhash.h does `#if defined(__SSSE3__) ... #include
++// <immintrin.h>`, and Platform.hh deliberately defines the SSE macros on
++// aarch64 (ISA masquerade for sse2neon). Undefine them here: moonray headers
++// above are already preprocessed, and OIIO must take its generic paths.
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
+ #endif
+ 
+ #include <OpenImageIO/imagebuf.h>
+ #include <OpenImageIO/imagebufalgo.h>
+ #include <OpenImageIO/imagecache.h>
+ #include <OpenImageIO/imageio.h>
++// Restore Platform.hh's aarch64 ISA masquerade (undef'd above only so OIIO
++// headers take generic paths). Later headers dispatch on these (geom/Types.h).
++#if defined(__aarch64__)
++  #ifndef MOONRAY_ISA_NEON2X
++    #ifndef __SSE3__
++    #define __SSE3__
++    #endif
++    #ifndef __SSSE3__
++    #define __SSSE3__
++    #endif
++    #ifndef __SSE4_1__
++    #define __SSE4_1__
++    #endif
++    #ifndef __SSE4_2__
++    #define __SSE4_2__
++    #endif
++  #endif
++#endif
+ 
+ #include <memory>
+ #include <string>
+diff --git a/lib/application/RaasApplication.cc b/lib/application/RaasApplication.cc
+index f57738c..e09f7bf 100644
+--- a/lib/application/RaasApplication.cc
++++ b/lib/application/RaasApplication.cc
+@@ -19,9 +19,45 @@
+ #include <scene_rdl2/scene/rdl2/rdl2.h>
+ #include <scene_rdl2/scene/rdl2/RenderOutput.h>
+ 
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon). OIIO's headers
++// dispatch on them: leaving them set makes OIIO try to include <immintrin.h> and
++// select x86 SIMD layouts. Every TU that includes OIIO must agree on this state,
++// otherwise struct layouts differ across TUs (ODR/ABI mismatch -> crashes).
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/imageio.h>
+ #include <OpenImageIO/imagebuf.h>
+ #include <OpenImageIO/imagebufalgo.h>
++#if defined(__aarch64__)
++// restore Platform.hh's masquerade for the rest of this TU
++#ifndef MOONRAY_ISA_NEON2X
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
++#endif
+ 
+ #include <chrono>
+ #include <cstdio>
+diff --git a/lib/common/mcrt_util/CPUID.cc b/lib/common/mcrt_util/CPUID.cc
+index ed6c200..62f8982 100644
+--- a/lib/common/mcrt_util/CPUID.cc
++++ b/lib/common/mcrt_util/CPUID.cc
+@@ -1,7 +1,7 @@
+ // Copyright 2023-2024 DreamWorks Animation LLC
+ // SPDX-License-Identifier: Apache-2.0
+ 
+-#if !defined(__APPLE__)
++#if defined(__x86_64__)
+ 
+ #include "CPUID.h"
+ 
+diff --git a/lib/common/mcrt_util/CPUID.h b/lib/common/mcrt_util/CPUID.h
+index 5b77f43..6320484 100644
+--- a/lib/common/mcrt_util/CPUID.h
++++ b/lib/common/mcrt_util/CPUID.h
+@@ -3,7 +3,9 @@
+ 
+ #pragma once
+ 
+-#if !defined(__APPLE__)
++// x86 CPUID instruction wrapper — arch-gated (was !__APPLE__, which wrongly
++// compiled this on Linux aarch64)
++#if defined(__x86_64__)
+ 
+ #include <array>
+ #include <atomic>
+diff --git a/lib/common/mcrt_util/Wait.h b/lib/common/mcrt_util/Wait.h
+index b9930a8..67c370c 100644
+--- a/lib/common/mcrt_util/Wait.h
++++ b/lib/common/mcrt_util/Wait.h
+@@ -46,12 +46,11 @@ inline void do_pause()
+     YieldProcessor();
+ #elif defined (__ICC)
+     _mm_pause();
+-#elif defined(__clang__)
+-  #if defined(__aarch64__)
++#elif defined(__aarch64__)
++    // any compiler on aarch64 (GCC has no __builtin_ia32_pause there)
+     __asm__ volatile("yield" ::: "memory");
+-  #else // __aarch64__
++#elif defined(__clang__)
+     __asm__ volatile("pause");
+-  #endif // __aarch64__
+ #else
+     __builtin_ia32_pause();
+ #endif
+diff --git a/lib/rendering/geom/Types.h b/lib/rendering/geom/Types.h
+index 1d63934..9279db3 100644
+--- a/lib/rendering/geom/Types.h
++++ b/lib/rendering/geom/Types.h
+@@ -31,6 +31,12 @@ namespace geom {
+     typedef simd::ssef simdf;
+     typedef simd::ssei simdi;
+     typedef simd::sseb simdb;
++#elif defined(__aarch64__)
++    // Defensive: Platform.hh masquerades SSE macros on aarch64, but a TU can
++    // reach here with them undef'd (OIIO guard blocks). NEON => 4-wide SSE types.
++    typedef simd::ssef simdf;
++    typedef simd::ssei simdi;
++    typedef simd::sseb simdb;
+ #endif
+ 
+ typedef scene_rdl2::math::BBox3f    BBox3f;
+diff --git a/lib/rendering/pbr/CMakeLists.txt b/lib/rendering/pbr/CMakeLists.txt
+index 3101e16..40ada2d 100644
+--- a/lib/rendering/pbr/CMakeLists.txt
++++ b/lib/rendering/pbr/CMakeLists.txt
+@@ -264,6 +264,15 @@ include(${PROJECT_NAME}SamplingDefinitions)
+ writeSamplingDefinitionsHeader("${headerDefs}") # passing a list requires quotes
+ 
+ # translate ".bin" source files to ".o" files
++# objcopy embeds raw binaries; the container format/arch must match the target
++# (was hardcoded x86: "architecture i386 unknown" on Linux aarch64)
++if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
++    set(samplerObjcopyArch aarch64)
++    set(samplerObjcopyTarget elf64-littleaarch64)
++else()
++    set(samplerObjcopyArch i386)
++    set(samplerObjcopyTarget elf64-x86-64)
++endif()
+ foreach(binFile ${binFiles})
+     get_filename_component(baseName ${binFile} NAME_WLE)
+     set(objFile sampler/${baseName}.o)
+@@ -278,8 +287,8 @@ foreach(binFile ${binFiles})
+         add_custom_command(
+             OUTPUT  ${objFile}
+             DEPENDS ${binFile}
+-            COMMAND objcopy --input-target=binary --binary-architecture=i386
+-                            --output-target=elf64-x86-64
++            COMMAND objcopy --input-target=binary --binary-architecture=${samplerObjcopyArch}
++                            --output-target=${samplerObjcopyTarget}
+                             "${binFile}"
+                             "${objFile}")
+     endif()
+diff --git a/lib/rendering/pbr/camera/BakeCamera.cc b/lib/rendering/pbr/camera/BakeCamera.cc
+index 1b9a772..238908f 100644
+--- a/lib/rendering/pbr/camera/BakeCamera.cc
++++ b/lib/rendering/pbr/camera/BakeCamera.cc
+@@ -26,7 +26,43 @@
+ // #include <OpenImageIO/imageio.h>
+ // #include <OpenImageIO/imagebuf.h>
+ // #include <OpenImageIO/imagebufalgo.h>
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon). OIIO's headers
++// dispatch on them: leaving them set makes OIIO try to include <immintrin.h> and
++// select x86 SIMD layouts. Every TU that includes OIIO must agree on this state,
++// otherwise struct layouts differ across TUs (ODR/ABI mismatch -> crashes).
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/texture.h>
++#if defined(__aarch64__)
++// restore Platform.hh's masquerade for the rest of this TU
++#ifndef MOONRAY_ISA_NEON2X
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
++#endif
+ 
+ #include <memory>
+ #include <string>
+diff --git a/lib/rendering/pbr/camera/BakeCamera.h b/lib/rendering/pbr/camera/BakeCamera.h
+index a2445ac..20dd218 100644
+--- a/lib/rendering/pbr/camera/BakeCamera.h
++++ b/lib/rendering/pbr/camera/BakeCamera.h
+@@ -17,7 +17,43 @@
+ #include <scene_rdl2/common/math/Vec3fa.h>
+ #include <scene_rdl2/scene/rdl2/Types.h>
+ 
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon). OIIO's headers
++// dispatch on them: leaving them set makes OIIO try to include <immintrin.h> and
++// select x86 SIMD layouts. Every TU that includes OIIO must agree on this state,
++// otherwise struct layouts differ across TUs (ODR/ABI mismatch -> crashes).
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/texture.h>
++#if defined(__aarch64__)
++// restore Platform.hh's masquerade for the rest of this TU
++#ifndef MOONRAY_ISA_NEON2X
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
++#endif
+ 
+ #include <string>
+ 
+@@ -41,10 +77,14 @@ private:
+     class NormalMap
+     {
+     public:
++        // mTextureHandle is a raw pointer and MUST be initialized for every OIIO
++        // version. Previously the initializer sat inside the OIIO<3.0 guard, so on
++        // OIIO>=3.0 it held garbage; haveNormalMap() (which only tests the handle)
++        // then returned true and createRayImpl dereferenced the empty
++        // mTextureSystem shared_ptr -> SIGSEGV in get_perthread_info.
++        // (Not arm64-specific: any OIIO>=3.0 build hits this.)
+         NormalMap()
+-#           if OIIO_VERSION < OIIO_MAKE_VERSION(3,0,0)
+             : mTextureHandle(nullptr)
+-#           endif
+         {
+         }
+ 
+@@ -82,7 +122,10 @@ private:
+                            scene_rdl2::math::Vec3f &nrmResult) const;
+ 
+     // has the user provided a valid normal map
+-    bool haveNormalMap() const { return mNormalMap.mTextureHandle; }
++    // both are needed before sampling: the handle AND the texture system
++    bool haveNormalMap() const {
++        return mNormalMap.mTextureHandle != nullptr && mNormalMap.mTextureSystem;
++    }
+ 
+     // does our baking mode require a normal?
+     bool needNormals() const { return getRdlCamera()->get(mAttrMode); }
+diff --git a/lib/rendering/pbr/camera/DomeMaster3DCamera.h b/lib/rendering/pbr/camera/DomeMaster3DCamera.h
+index d809d12..24cf38f 100644
+--- a/lib/rendering/pbr/camera/DomeMaster3DCamera.h
++++ b/lib/rendering/pbr/camera/DomeMaster3DCamera.h
+@@ -9,10 +9,46 @@
+ #include <scene_rdl2/common/math/Mat4.h>
+ #include <scene_rdl2/common/math/Vec3.h>
+ 
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon). OIIO's headers
++// dispatch on them: leaving them set makes OIIO try to include <immintrin.h> and
++// select x86 SIMD layouts. Every TU that includes OIIO must agree on this state,
++// otherwise struct layouts differ across TUs (ODR/ABI mismatch -> crashes).
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/imageio.h>
+ #include <OpenImageIO/imagebuf.h>
+ #include <OpenImageIO/imagebufalgo.h>
+ #include <OpenImageIO/texture.h>
++#if defined(__aarch64__)
++// restore Platform.hh's masquerade for the rest of this TU
++#ifndef MOONRAY_ISA_NEON2X
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
++#endif
+ 
+ #include <memory>
+ 
+diff --git a/lib/rendering/pbr/core/Distribution.cc b/lib/rendering/pbr/core/Distribution.cc
+index e0af929..1c765b0 100644
+--- a/lib/rendering/pbr/core/Distribution.cc
++++ b/lib/rendering/pbr/core/Distribution.cc
+@@ -18,10 +18,46 @@
+ #include <scene_rdl2/render/util/Memory.h>
+ #include <scene_rdl2/common/platform/HybridUniformData.h>
+ 
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon). OIIO's headers
++// dispatch on them: leaving them set makes OIIO try to include <immintrin.h> and
++// select x86 SIMD layouts. Every TU that includes OIIO must agree on this state,
++// otherwise struct layouts differ across TUs (ODR/ABI mismatch -> crashes).
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/texture.h>
+ #include <OpenImageIO/imageio.h>
+ #include <OpenImageIO/imagebuf.h>
+ #include <OpenImageIO/imagebufalgo.h>
++#if defined(__aarch64__)
++// restore Platform.hh's masquerade for the rest of this TU
++#ifndef MOONRAY_ISA_NEON2X
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
++#endif
+ #include <tbb/parallel_for.h>
+ 
+ #include <cstring>
+diff --git a/lib/rendering/pbr/core/Distribution.h b/lib/rendering/pbr/core/Distribution.h
+index d75d19d..2043ea1 100644
+--- a/lib/rendering/pbr/core/Distribution.h
++++ b/lib/rendering/pbr/core/Distribution.h
+@@ -25,9 +25,41 @@
+ #define OIIO_NO_SSE 1
+ #define OIIO_NO_AVX 1
+ #define OIIO_NO_AVX2 1
++// GCC on Linux aarch64: the include-guard trick above only works for clang
++// (GCC's immintrin guard differs and the header doesn't even exist on arm).
++// OIIO's vendored farmhash.h does `#if defined(__SSSE3__) ... #include
++// <immintrin.h>`, and Platform.hh deliberately defines the SSE macros on
++// aarch64 (ISA masquerade for sse2neon). Undefine them here: moonray headers
++// above are already preprocessed, and OIIO must take its generic paths.
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
+ #endif
+ 
+ #include <OpenImageIO/imageio.h>
++// Restore Platform.hh's aarch64 ISA masquerade (undef'd above only so OIIO
++// headers take generic paths). Later headers dispatch on these (geom/Types.h).
++#if defined(__aarch64__)
++  #ifndef MOONRAY_ISA_NEON2X
++    #ifndef __SSE3__
++    #define __SSE3__
++    #endif
++    #ifndef __SSSE3__
++    #define __SSSE3__
++    #endif
++    #ifndef __SSE4_1__
++    #define __SSE4_1__
++    #endif
++    #ifndef __SSE4_2__
++    #define __SSE4_2__
++    #endif
++  #endif
++#endif
+ 
+ #include <string>
+ 
+diff --git a/lib/rendering/rndr/ExrUtils.h b/lib/rendering/rndr/ExrUtils.h
+index c6a00b5..4db59ef 100644
+--- a/lib/rendering/rndr/ExrUtils.h
++++ b/lib/rendering/rndr/ExrUtils.h
+@@ -13,8 +13,40 @@
+ #define OIIO_NO_SSE 1
+ #define OIIO_NO_AVX 1
+ #define OIIO_NO_AVX2 1
++// GCC on Linux aarch64: the include-guard trick above only works for clang
++// (GCC's immintrin guard differs and the header doesn't even exist on arm).
++// OIIO's vendored farmhash.h does `#if defined(__SSSE3__) ... #include
++// <immintrin.h>`, and Platform.hh deliberately defines the SSE macros on
++// aarch64 (ISA masquerade for sse2neon). Undefine them here: moonray headers
++// above are already preprocessed, and OIIO must take its generic paths.
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
+ #endif
+ #include <OpenImageIO/imageio.h>
++// Restore Platform.hh's aarch64 ISA masquerade (undef'd above only so OIIO
++// headers take generic paths). Later headers dispatch on these (geom/Types.h).
++#if defined(__aarch64__)
++  #ifndef MOONRAY_ISA_NEON2X
++    #ifndef __SSE3__
++    #define __SSE3__
++    #endif
++    #ifndef __SSSE3__
++    #define __SSSE3__
++    #endif
++    #ifndef __SSE4_1__
++    #define __SSE4_1__
++    #endif
++    #ifndef __SSE4_2__
++    #define __SSE4_2__
++    #endif
++  #endif
++#endif
+ 
+ namespace moonray {
+ namespace rndr {
+diff --git a/lib/rendering/rndr/ImageWriteCache.h b/lib/rendering/rndr/ImageWriteCache.h
+index 75ffc7e..4bb2144 100644
+--- a/lib/rendering/rndr/ImageWriteCache.h
++++ b/lib/rendering/rndr/ImageWriteCache.h
+@@ -17,8 +17,40 @@
+ #define OIIO_NO_SSE 1
+ #define OIIO_NO_AVX 1
+ #define OIIO_NO_AVX2 1
++// GCC on Linux aarch64: the include-guard trick above only works for clang
++// (GCC's immintrin guard differs and the header doesn't even exist on arm).
++// OIIO's vendored farmhash.h does `#if defined(__SSSE3__) ... #include
++// <immintrin.h>`, and Platform.hh deliberately defines the SSE macros on
++// aarch64 (ISA masquerade for sse2neon). Undefine them here: moonray headers
++// above are already preprocessed, and OIIO must take its generic paths.
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
+ #endif
+ #include <OpenImageIO/imageio.h>
++// Restore Platform.hh's aarch64 ISA masquerade (undef'd above only so OIIO
++// headers take generic paths). Later headers dispatch on these (geom/Types.h).
++#if defined(__aarch64__)
++  #ifndef MOONRAY_ISA_NEON2X
++    #ifndef __SSE3__
++    #define __SSE3__
++    #endif
++    #ifndef __SSSE3__
++    #define __SSSE3__
++    #endif
++    #ifndef __SSE4_1__
++    #define __SSE4_1__
++    #endif
++    #ifndef __SSE4_2__
++    #define __SSE4_2__
++    #endif
++  #endif
++#endif
+ 
+ #include <atomic>
+ #include <fstream>
+diff --git a/lib/rendering/rndr/OiioUtils.h b/lib/rendering/rndr/OiioUtils.h
+index 8f2bc4b..57060b2 100644
+--- a/lib/rendering/rndr/OiioUtils.h
++++ b/lib/rendering/rndr/OiioUtils.h
+@@ -15,12 +15,44 @@
+ #define OIIO_NO_SSE 1
+ #define OIIO_NO_AVX 1
+ #define OIIO_NO_AVX2 1
++// GCC on Linux aarch64: the include-guard trick above only works for clang
++// (GCC's immintrin guard differs and the header doesn't even exist on arm).
++// OIIO's vendored farmhash.h does `#if defined(__SSSE3__) ... #include
++// <immintrin.h>`, and Platform.hh deliberately defines the SSE macros on
++// aarch64 (ISA masquerade for sse2neon). Undefine them here: moonray headers
++// above are already preprocessed, and OIIO must take its generic paths.
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
+ #endif
+ 
+ // Make sure atomic<float> template specialization is defined
+ // before including OIIO headers
+ #include <scene_rdl2/render/util/AtomicFloat.h>
+ #include <OpenImageIO/imageio.h>
++// Restore Platform.hh's aarch64 ISA masquerade (undef'd above only so OIIO
++// headers take generic paths). Later headers dispatch on these (geom/Types.h).
++#if defined(__aarch64__)
++  #ifndef MOONRAY_ISA_NEON2X
++    #ifndef __SSE3__
++    #define __SSE3__
++    #endif
++    #ifndef __SSSE3__
++    #define __SSSE3__
++    #endif
++    #ifndef __SSE4_1__
++    #define __SSE4_1__
++    #endif
++    #ifndef __SSE4_2__
++    #define __SSE4_2__
++    #endif
++  #endif
++#endif
+ #include <memory>
+ 
+ namespace moonray {
+diff --git a/lib/rendering/rndr/PixelBufferUtils.cc b/lib/rendering/rndr/PixelBufferUtils.cc
+index 05eeb85..152165c 100644
+--- a/lib/rendering/rndr/PixelBufferUtils.cc
++++ b/lib/rendering/rndr/PixelBufferUtils.cc
+@@ -10,9 +10,45 @@
+ #include <scene_rdl2/common/fb_util/PixelBufferUtilsGamma8bit.h>
+ #include <scene_rdl2/render/util/Strings.h>
+ 
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon). OIIO's headers
++// dispatch on them: leaving them set makes OIIO try to include <immintrin.h> and
++// select x86 SIMD layouts. Every TU that includes OIIO must agree on this state,
++// otherwise struct layouts differ across TUs (ODR/ABI mismatch -> crashes).
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/imageio.h>
+ #include <OpenImageIO/imagebuf.h>
+ #include <OpenImageIO/imagebufalgo.h>
++#if defined(__aarch64__)
++// restore Platform.hh's masquerade for the rest of this TU
++#ifndef MOONRAY_ISA_NEON2X
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
++#endif
+ 
+ #include <functional>
+ #include <memory>
+diff --git a/lib/rendering/rndr/RenderOutputDriver.cc b/lib/rendering/rndr/RenderOutputDriver.cc
+index 4db394f..ab37eaa 100644
+--- a/lib/rendering/rndr/RenderOutputDriver.cc
++++ b/lib/rendering/rndr/RenderOutputDriver.cc
+@@ -24,7 +24,43 @@
+ #include <scene_rdl2/render/util/Strings.h>
+ #include <scene_rdl2/render/util/StrUtil.h>
+ 
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon). OIIO's headers
++// dispatch on them: leaving them set makes OIIO try to include <immintrin.h> and
++// select x86 SIMD layouts. Every TU that includes OIIO must agree on this state,
++// otherwise struct layouts differ across TUs (ODR/ABI mismatch -> crashes).
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/imageio.h>
++#if defined(__aarch64__)
++// restore Platform.hh's masquerade for the rest of this TU
++#ifndef MOONRAY_ISA_NEON2X
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
++#endif
+ #include <tbb/parallel_for.h>
+ 
+ #include <exception>
+diff --git a/lib/rendering/rndr/RenderOutputWriter.cc b/lib/rendering/rndr/RenderOutputWriter.cc
+index 092ba21..413c222 100644
+--- a/lib/rendering/rndr/RenderOutputWriter.cc
++++ b/lib/rendering/rndr/RenderOutputWriter.cc
+@@ -1568,10 +1568,11 @@ float
+ RenderOutputWriter::htof(const unsigned short h)
+ {
+ 
+-#if defined(__ARM_NEON__)   // TODO: Verify this
+-	float output;
+-	vst1q_f32(&output, vcvt_f32_f16(vld1_u16(&h)));
+-	return output;
++#if defined(__ARM_NEON__)
++    // verified impl (was: OOB store of 4 floats into one + missing u16->f16
++    // reinterpret): dup scalar, convert, extract lane 0.
++    const float16x4_t h4 = vreinterpret_f16_u16(vdup_n_u16(h));
++    return vgetq_lane_f32(vcvt_f32_f16(h4), 0);
+ #else
+     return _cvtsh_ss(h); // Convert half 16bit float to full 32bit float
+ #endif
+@@ -1583,13 +1584,13 @@ unsigned short
+ RenderOutputWriter::ftoh(const float f)
+ {
+ 
+-#if defined(__ARM_NEON__)   // TODO: Verify this
+-	__fp16 output;
+-	vst1_f16(&output, vcvt_f16_f32(vld1q_f32(&f)));
+-	return output;
++#if defined(__ARM_NEON__)
++    // verified impl (was: OOB load of 4 floats from one scalar + OOB store)
++    const float16x4_t h4 = vcvt_f16_f32(vdupq_n_f32(f));
++    return vget_lane_u16(vreinterpret_u16_f16(h4), 0);
+ #else
+     return _cvtss_sh(f, 0); // Convert full 32bit float to half 16bit float
+-                            // An immediate value controlling rounding using bits : 0=Nearest 
++                            // An immediate value controlling rounding using bits : 0=Nearest
+ #endif
+ }
+ 
+diff --git a/lib/rendering/rndr/RenderOutputWriter.h b/lib/rendering/rndr/RenderOutputWriter.h
+index b448672..ff75e24 100644
+--- a/lib/rendering/rndr/RenderOutputWriter.h
++++ b/lib/rendering/rndr/RenderOutputWriter.h
+@@ -7,7 +7,43 @@
+ 
+ #include <scene_rdl2/render/util/AlignedAllocator.h>
+ 
++#ifdef __ARM_NEON__
++// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon). OIIO's headers
++// dispatch on them: leaving them set makes OIIO try to include <immintrin.h> and
++// select x86 SIMD layouts. Every TU that includes OIIO must agree on this state,
++// otherwise struct layouts differ across TUs (ODR/ABI mismatch -> crashes).
++#define __IMMINTRIN_H
++#define __NMMINTRIN_H
++#define OIIO_NO_SSE 1
++#define OIIO_NO_AVX 1
++#define OIIO_NO_AVX2 1
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
++#endif
+ #include <OpenImageIO/imagebuf.h>
++#if defined(__aarch64__)
++// restore Platform.hh's masquerade for the rest of this TU
++#ifndef MOONRAY_ISA_NEON2X
++#ifndef __SSE3__
++#define __SSE3__
++#endif
++#ifndef __SSSE3__
++#define __SSSE3__
++#endif
++#ifndef __SSE4_1__
++#define __SSE4_1__
++#endif
++#ifndef __SSE4_2__
++#define __SSE4_2__
++#endif
++#endif
++#endif
+ 
+ namespace scene_rdl2 {
+ namespace fb_util {
+diff --git a/lib/rendering/rndr/RenderStatistics.cc b/lib/rendering/rndr/RenderStatistics.cc
+index 706473e..1941c8c 100644
+--- a/lib/rendering/rndr/RenderStatistics.cc
++++ b/lib/rendering/rndr/RenderStatistics.cc
+@@ -511,7 +511,7 @@ RenderStats::logRenderOptions(const RenderOptions& options, std::ostream& outs,
+ {
+     const bool csvStream = format == OutputFormat::athenaCSV || format == OutputFormat::fileCSV;
+ 
+-#ifndef __APPLE__  // TODO: Temporary, reimplement this
++#if defined(__x86_64__)  // CPUID is x86-only (was !__APPLE__; broke Linux aarch64)
+     util::CPUID cpuid;
+ 
+     StatsTable<2> hardwareTable("Hardware Support");
+diff --git a/lib/rendering/shading/BasicTexture.cc b/lib/rendering/shading/BasicTexture.cc
+index 31c070c..e01066e 100644
+--- a/lib/rendering/shading/BasicTexture.cc
++++ b/lib/rendering/shading/BasicTexture.cc
+@@ -19,9 +19,37 @@
+ // support due to sse2neon.h being included elsewhere
+ #define __IMMINTRIN_H
+ #define __NMMINTRIN_H
++// GCC/aarch64: also undef the Platform.hh ISA-masquerade macros so OIIO's
++// headers (incl. vendored farmhash) take generic paths instead of x86 ones.
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
+ #endif
+ 
+ #include <OpenImageIO/texture.h>
++// Restore Platform.hh's aarch64 ISA masquerade (undef'd above only so OIIO
++// headers take generic paths). Later headers dispatch on these (geom/Types.h).
++#if defined(__aarch64__)
++  #ifndef MOONRAY_ISA_NEON2X
++    #ifndef __SSE3__
++    #define __SSE3__
++    #endif
++    #ifndef __SSSE3__
++    #define __SSSE3__
++    #endif
++    #ifndef __SSE4_1__
++    #define __SSE4_1__
++    #endif
++    #ifndef __SSE4_2__
++    #define __SSE4_2__
++    #endif
++  #endif
++#endif
+ 
+ #include <memory>
+ #include <mutex>
+diff --git a/lib/rendering/shading/Texture.h b/lib/rendering/shading/Texture.h
+index e824fa3..1e22b21 100644
+--- a/lib/rendering/shading/Texture.h
++++ b/lib/rendering/shading/Texture.h
+@@ -14,8 +14,40 @@
+ #define OIIO_NO_SSE 1
+ #define OIIO_NO_AVX 1
+ #define OIIO_NO_AVX2 1
++// GCC on Linux aarch64: the include-guard trick above only works for clang
++// (GCC's immintrin guard differs and the header doesn't even exist on arm).
++// OIIO's vendored farmhash.h does `#if defined(__SSSE3__) ... #include
++// <immintrin.h>`, and Platform.hh deliberately defines the SSE macros on
++// aarch64 (ISA masquerade for sse2neon). Undefine them here: moonray headers
++// above are already preprocessed, and OIIO must take its generic paths.
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
+ #endif
+ #include <OpenImageIO/texture.h>
++// Restore Platform.hh's aarch64 ISA masquerade (undef'd above only so OIIO
++// headers take generic paths). Later headers dispatch on these (geom/Types.h).
++#if defined(__aarch64__)
++  #ifndef MOONRAY_ISA_NEON2X
++    #ifndef __SSE3__
++    #define __SSE3__
++    #endif
++    #ifndef __SSSE3__
++    #define __SSSE3__
++    #endif
++    #ifndef __SSE4_1__
++    #define __SSE4_1__
++    #endif
++    #ifndef __SSE4_2__
++    #define __SSE4_2__
++    #endif
++  #endif
++#endif
+ 
+ // -------------------------------------------------
+ // Types and functions used by both BasicTexture and
+diff --git a/lib/rendering/shading/UdimTexture.cc b/lib/rendering/shading/UdimTexture.cc
+index 9af3ab0..233c439 100644
+--- a/lib/rendering/shading/UdimTexture.cc
++++ b/lib/rendering/shading/UdimTexture.cc
+@@ -19,8 +19,36 @@
+ // support due to sse2neon.h being included elsewhere
+ #define __IMMINTRIN_H
+ #define __NMMINTRIN_H
++// GCC/aarch64: also undef the Platform.hh ISA-masquerade macros so OIIO's
++// headers (incl. vendored farmhash) take generic paths instead of x86 ones.
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
+ #endif
+ #include <OpenImageIO/texture.h>
++// Restore Platform.hh's aarch64 ISA masquerade (undef'd above only so OIIO
++// headers take generic paths). Later headers dispatch on these (geom/Types.h).
++#if defined(__aarch64__)
++  #ifndef MOONRAY_ISA_NEON2X
++    #ifndef __SSE3__
++    #define __SSE3__
++    #endif
++    #ifndef __SSSE3__
++    #define __SSSE3__
++    #endif
++    #ifndef __SSE4_1__
++    #define __SSE4_1__
++    #endif
++    #ifndef __SSE4_2__
++    #define __SSE4_2__
++    #endif
++  #endif
++#endif
+ 
+ #include <tbb/blocked_range.h>
+ #include <tbb/parallel_for.h>
+diff --git a/lib/rendering/texturing/sampler/TextureTLState.h b/lib/rendering/texturing/sampler/TextureTLState.h
+index a48afb5..db66236 100644
+--- a/lib/rendering/texturing/sampler/TextureTLState.h
++++ b/lib/rendering/texturing/sampler/TextureTLState.h
+@@ -15,6 +15,20 @@
+ #define OIIO_NO_SSE 1
+ #define OIIO_NO_AVX 1
+ #define OIIO_NO_AVX2 1
++// GCC on Linux aarch64: the include-guard trick above only works for clang
++// (GCC's immintrin guard differs and the header doesn't even exist on arm).
++// OIIO's vendored farmhash.h does `#if defined(__SSSE3__) ... #include
++// <immintrin.h>`, and Platform.hh deliberately defines the SSE macros on
++// aarch64 (ISA masquerade for sse2neon). Undefine them here: moonray headers
++// above are already preprocessed, and OIIO must take its generic paths.
++#undef __SSE__
++#undef __SSE2__
++#undef __SSE3__
++#undef __SSSE3__
++#undef __SSE4_1__
++#undef __SSE4_2__
++#undef __AVX__
++#undef __AVX2__
+ #endif
+ 
+ #pragma push_macro("COLOR")
+@@ -24,6 +38,24 @@
+ #include <Imath/ImathVec.h>  // OIIO uses the Vector classes from Imath but defines its own version if not already defined.
+ #include <OpenImageIO/version.h>
+ #include <OpenImageIO/texture.h>
++// Restore Platform.hh's aarch64 ISA masquerade (undef'd above only so OIIO
++// headers take generic paths). Later headers dispatch on these (geom/Types.h).
++#if defined(__aarch64__)
++  #ifndef MOONRAY_ISA_NEON2X
++    #ifndef __SSE3__
++    #define __SSE3__
++    #endif
++    #ifndef __SSSE3__
++    #define __SSSE3__
++    #endif
++    #ifndef __SSE4_1__
++    #define __SSE4_1__
++    #endif
++    #ifndef __SSE4_2__
++    #define __SSE4_2__
++    #endif
++  #endif
++#endif
+ #pragma pop_macro("COLOR")
+ #pragma pop_macro("NORMAL")
+ 

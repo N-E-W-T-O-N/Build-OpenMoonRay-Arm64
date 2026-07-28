@@ -17,7 +17,43 @@
 #include <scene_rdl2/common/math/Vec3fa.h>
 #include <scene_rdl2/scene/rdl2/Types.h>
 
+#ifdef __ARM_NEON__
+// Platform.hh masquerades x86 SIMD macros on aarch64 (sse2neon). OIIO's headers
+// dispatch on them: leaving them set makes OIIO try to include <immintrin.h> and
+// select x86 SIMD layouts. Every TU that includes OIIO must agree on this state,
+// otherwise struct layouts differ across TUs (ODR/ABI mismatch -> crashes).
+#define __IMMINTRIN_H
+#define __NMMINTRIN_H
+#define OIIO_NO_SSE 1
+#define OIIO_NO_AVX 1
+#define OIIO_NO_AVX2 1
+#undef __SSE__
+#undef __SSE2__
+#undef __SSE3__
+#undef __SSSE3__
+#undef __SSE4_1__
+#undef __SSE4_2__
+#undef __AVX__
+#undef __AVX2__
+#endif
 #include <OpenImageIO/texture.h>
+#if defined(__aarch64__)
+// restore Platform.hh's masquerade for the rest of this TU
+#ifndef MOONRAY_ISA_NEON2X
+#ifndef __SSE3__
+#define __SSE3__
+#endif
+#ifndef __SSSE3__
+#define __SSSE3__
+#endif
+#ifndef __SSE4_1__
+#define __SSE4_1__
+#endif
+#ifndef __SSE4_2__
+#define __SSE4_2__
+#endif
+#endif
+#endif
 
 #include <string>
 
@@ -41,10 +77,14 @@ private:
     class NormalMap
     {
     public:
+        // mTextureHandle is a raw pointer and MUST be initialized for every OIIO
+        // version. Previously the initializer sat inside the OIIO<3.0 guard, so on
+        // OIIO>=3.0 it held garbage; haveNormalMap() (which only tests the handle)
+        // then returned true and createRayImpl dereferenced the empty
+        // mTextureSystem shared_ptr -> SIGSEGV in get_perthread_info.
+        // (Not arm64-specific: any OIIO>=3.0 build hits this.)
         NormalMap()
-#           if OIIO_VERSION < OIIO_MAKE_VERSION(3,0,0)
             : mTextureHandle(nullptr)
-#           endif
         {
         }
 
@@ -82,7 +122,10 @@ private:
                            scene_rdl2::math::Vec3f &nrmResult) const;
 
     // has the user provided a valid normal map
-    bool haveNormalMap() const { return mNormalMap.mTextureHandle; }
+    // both are needed before sampling: the handle AND the texture system
+    bool haveNormalMap() const {
+        return mNormalMap.mTextureHandle != nullptr && mNormalMap.mTextureSystem;
+    }
 
     // does our baking mode require a normal?
     bool needNormals() const { return getRdlCamera()->get(mAttrMode); }

@@ -112,5 +112,15 @@ if (NOT OpenColorIO_FOUND)
     target_compile_definitions(${target} PRIVATE DISABLE_OCIO)
 endif()
 
+# Qt defines `emit` as an empty macro; oneTBB (2021+) has `void emit()` in
+# oneapi/tbb/profiling.h, so any TU that includes Qt before TBB fails with
+# "expected unqualified-id before ')'". Force-include the TBB header first in
+# every TU (including generated MOC files) so its method is parsed before the
+# macro exists. Upstream doesn't hit this because it pins TBB 2020.
+# QtQuirks.h handles the sibling `slots`/`signals` clashes the same way.
+if(TARGET TBB::tbb)
+    target_compile_options(${target} PRIVATE -include oneapi/tbb/profiling.h)
+endif()
+
 install(TARGETS ${target}
     RUNTIME DESTINATION bin)
