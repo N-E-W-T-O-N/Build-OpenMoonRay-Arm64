@@ -30,6 +30,10 @@ SIZE="128 128" ./scripts/rats_native.sh ...        # faster first pass
 THREADS=8 TIMEOUT=1800 OUT_DIR=/tmp/rats ./scripts/rats_native.sh ...
 ```
 
+`RATS_ASSETS_DIR` is exported automatically by the script — it is **mandatory**. Every scene begins
+`rats_assets_dir = os.getenv("RATS_ASSETS_DIR")` and concatenates it, so without the var every
+scene fails at parse time in ~1 s with `rc=1`.
+
 Covers camera, geometry, light, material, map, motion_blur, displacement, displayfilter, deep,
 differentials, pixel_filter, misc. Writes `rats-results-<mode>/results.csv` with per-scene
 **status + render seconds** — that CSV is your native performance baseline.
@@ -70,12 +74,20 @@ idiff -a -abs /tmp/sca.exr /tmp/vec.exr     # if idiff is installed
 
 ## 4 — GUI
 
-```bash
-./moonray-gui-arm64.run                                        # software GL (works anywhere)
-LIBGL_ALWAYS_SOFTWARE=0 LIBGL_DRIVERS_PATH= ./moonray-gui-arm64.run   # hardware GL (Mali/panfrost)
+The GUIs are interactive **render viewers**, not modelling apps — they need a scene, and print
+their usage block if you give them none (that is not a crash):
 
-./moonray-gui-arm64.run --extract-only        # then: ./moonray-gui-v2  or  ./moonray
+```bash
+./moonray-gui-arm64.run -in omr/source/testdata/sphere.rdla     # Qt viewer, software GL
+
+./moonray-gui-arm64.run --extract-only && cd moonray-gui-arm64
+LIBGL_ALWAYS_SOFTWARE=0 LIBGL_DRIVERS_PATH= ./moonray-gui-v2 -in .../sphere.rdla   # ImGui, GPU
 ```
+
+**GL version ceiling matters.** `moonray_gui` (Qt) compiles `#version 330 core`, i.e. it requires
+OpenGL **3.3**. Mali-G610/Panfrost exposes GL **3.1** — so the Qt viewer *cannot* run on that GPU
+and must use the bundled software GL (llvmpipe, GL 4.5). `moonray_gui_v2` needs only GL 3.0/GLSL 130
+on Linux, so it runs on the real GPU. See **[NATIVE-DEVICE.md](NATIVE-DEVICE.md)**.
 In a container: `-e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -e QT_X11_NO_MITSHM=1 --device /dev/dri`
 (see `scripts/container_display.sh`).
 

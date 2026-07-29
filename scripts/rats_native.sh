@@ -34,6 +34,15 @@ TIMEOUT="${TIMEOUT:-900}"
 
 [ -d "$RATS_DIR/tests" ] || { echo "ERROR: $RATS_DIR/tests not found (wrong rats dir?)" >&2; exit 1; }
 
+# MANDATORY: every RaTS scene starts with
+#     rats_assets_dir = os.getenv("RATS_ASSETS_DIR")
+# and then concatenates it (rats_assets_dir.."/textures/foo.tx"). Without this
+# env var os.getenv returns nil, the concat is a Lua error, and EVERY scene dies
+# at parse time in ~1s with rc=1. The CMake harness sets it via
+# RatsTest.cmake:156; a standalone runner must do the same.
+export RATS_ASSETS_DIR="${RATS_ASSETS_DIR:-$(cd "$RATS_DIR/assets" && pwd)}"
+[ -d "$RATS_ASSETS_DIR" ] || { echo "ERROR: assets dir not found: $RATS_ASSETS_DIR" >&2; exit 1; }
+
 # --- unpack the bundle once, then use its moonray directly -------------------
 BUNDLE_DIR=$(MOONRAY_DIR="${MOONRAY_DIR:-$PWD/moonray-arm64}" "$RUN_FILE" --extract-only)
 MOONRAY="$BUNDLE_DIR/moonray"
@@ -41,6 +50,7 @@ MOONRAY="$BUNDLE_DIR/moonray"
 echo ">> renderer : $MOONRAY"
 echo ">> mode     : $MODE   threads: $THREADS   ${SIZE:+size: $SIZE}"
 echo ">> results  : $OUT_DIR"
+echo ">> assets   : $RATS_ASSETS_DIR"
 [ -n "${RATS_CANONICAL_DIR:-}" ] && echo ">> canonicals: $RATS_CANONICAL_DIR (comparison ENABLED)" \
                                  || echo ">> canonicals: none — crash/error detection only"
 

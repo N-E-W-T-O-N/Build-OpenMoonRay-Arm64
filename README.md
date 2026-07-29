@@ -31,8 +31,9 @@ Ubuntu 26.04 and running on Ubuntu 22.04 (glibc 2.35) with nothing installed.
 ./moonray-cli-arm64.run --extract-only     # unpack without running
 MOONRAY_DIR=/opt/mr ./moonray-cli-arm64.run   # choose where it unpacks
 
-./moonray-gui-arm64.run                                              # GUI, software GL
-LIBGL_ALWAYS_SOFTWARE=0 LIBGL_DRIVERS_PATH= ./moonray-gui-arm64.run  # GUI, hardware GL (Mali)
+# the GUI is a render VIEWER - it needs a scene, and prints usage without one
+./moonray-gui-arm64.run -in scene.rdla                # Qt viewer (software GL - see below)
+./moonray-gui-arm64.run --extract-only                # then: ./moonray-gui-v2 -in scene.rdla
 ```
 
 Useful render flags: `-size W H` · `-threads N` · `-exec_mode scalar|vectorized` (vectorized =
@@ -41,7 +42,12 @@ NEON SIMD) · `-in`/`-out` may repeat.
 ## Testing on your device
 
 **[docs/TESTING.md](docs/TESTING.md)** — smoke test, the 361-scene RaTS corpus, scalar-vs-vectorized
-cross-check, GUI with hardware GL, unit tests, and what should change on real silicon vs emulation.
+cross-check, GUI, unit tests, and what should change on real silicon vs emulation.
+**[docs/NATIVE-DEVICE.md](docs/NATIVE-DEVICE.md)** — the validated board (Vicharak RK3588 AXON),
+its ARMv8.2-A implications, and which GUI works on Mali-G610.
+
+> **Mali-G610 / Panfrost caps at OpenGL 3.1.** `moonray_gui` (Qt) needs GL **3.3**, so it must use
+> the bundled **software** GL. `moonray_gui_v2` needs only GL 3.0 and can use the real GPU.
 
 ```bash
 ./scripts/rats_native.sh ./moonray-cli-arm64.run source/rats scalar
