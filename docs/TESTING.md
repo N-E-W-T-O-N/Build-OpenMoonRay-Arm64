@@ -35,8 +35,16 @@ THREADS=8 TIMEOUT=1800 OUT_DIR=/tmp/rats ./scripts/rats_native.sh ...
 scene fails at parse time in ~1 s with `rc=1`.
 
 Covers camera, geometry, light, material, map, motion_blur, displacement, displayfilter, deep,
-differentials, pixel_filter, misc. Writes `rats-results-<mode>/results.csv` with per-scene
-**status + render seconds** — that CSV is your native performance baseline.
+differentials, pixel_filter, misc — **346 declared tests**. Writes
+`rats-results-<mode>/results.csv` with per-test **status + render seconds** — that CSV is your
+native performance baseline.
+
+The runner reads each test's `add_rats_test(INPUTS … DELTAS …)` declaration from its
+`CMakeLists.txt` rather than globbing `*.rdla`. That matters: 15 of the `.rdla` files are
+fragments (`common.rdla`, `deltas.rdla`) that are **not** standalone scenes — globbing them
+produces phantom failures, and it also misses that delta tests must pass their second file via
+`-deltas`, not `-in`. Each test also runs with its own working directory, mirroring
+`WORKING_DIRECTORY` in RatsTest.cmake.
 
 ### What this does and does not verify
 
