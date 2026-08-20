@@ -252,9 +252,6 @@ __m256i _mm256_set1_epi32 (int a)
     //res.lo = res.hi = vdupq_n_s32(a);
     return res;
 }
-
-
-
 AVX2NEON_ABI
 __m256i _mm256_set1_epi8 (int a)
 {

@@ -1,4 +1,24 @@
 
+## Upstream merge — 2026-08-20 (cmake_modules, scene_rdl2)
+
+Two submodules had drifted 1 commit each since v2026.29.1, and upstream had touched exactly one
+file in each — the same two files this port modifies. `git submodule update --remote` refused to
+proceed ("local changes would be overwritten"), which was git protecting the work, not a failure.
+
+Resolved by 3-way merge (stash → checkout new commit → stash pop), **0 conflicts**. Both sides kept:
+
+| file | upstream brought | we keep |
+|---|---|---|
+| `cmake_modules/cmake/FindTBB.cmake` | `cmake_minimum_required 3.1 → 3.5` (CMake 4 support) | oneTBB CONFIG delegation, aarch64 lib paths, `.so.12` soname |
+| `scene_rdl2/mod/python/py_scene_rdl2/CMakeLists.txt` | `add_library SHARED → MODULE`, `Python_FOUND` guard, explicit LIBRARY/RUNTIME output dirs | `system` dropped from Boost components + header-only `Boost::system` shim (Boost >= 1.89) |
+
+Note: upstream's 3.1→3.5 bump is the *proper* fix for the CMake-4 policy error this port had worked
+around with `CMAKE_POLICY_VERSION_MINIMUM=3.5` in the preset. That workaround can likely be dropped
+once the whole dependency chain is on >= 3.5.
+
+Submodule pointers now: `cmake_modules` → 1b1b7af, `moonray/scene_rdl2` → 1229d3e.
+All other 14 submodules were already at their remote tips. 90 port-modified files preserved.
+
 ## Golden-image (RaTS) validation + real upstream bug — 2026-07-28
 
 **RaTS subset: 28/28 pass** (was 26/28). First rigorous validation: renders compared against

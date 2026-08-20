@@ -1,10 +1,10 @@
 diff --git a/cmake/FindTBB.cmake b/cmake/FindTBB.cmake
-index 201dc94..c6ddc2d 100644
+index 292203f..8154415 100644
 --- a/cmake/FindTBB.cmake
 +++ b/cmake/FindTBB.cmake
-@@ -46,6 +46,21 @@
+@@ -47,6 +47,21 @@
  # We use INTERFACE libraries, which are only supported in 3.x
- cmake_minimum_required(VERSION 3.1)
+ cmake_minimum_required(VERSION 3.5)
  
 +# oneTBB 2021+ installs its own CMake package config. Prefer it: if this module
 +# hand-rolls TBB::* imported targets and a dependency (e.g. USD's pxrConfig)
@@ -24,7 +24,7 @@ index 201dc94..c6ddc2d 100644
  # These two are used to automatically find the root and include directories.
  set(_TBB_INCLUDE_SUBDIR "include")
  set(_TBB_HEADER "tbb/tbb.h")
-@@ -353,15 +368,19 @@ function(rk_tbb_find_library COMPONENT_NAME BUILD_CONFIG)
+@@ -354,15 +369,19 @@ function(rk_tbb_find_library COMPONENT_NAME BUILD_CONFIG)
      list(APPEND LIB_PATHS
        ${TBB_ROOT}/lib
        ${TBB_ROOT}/lib/x86_64-linux-gnu
