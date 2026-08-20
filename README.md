@@ -41,6 +41,21 @@ NEON SIMD) · `-in`/`-out` may repeat.
 
 ## Testing on your device
 
+**Start here — one command tells you whether this box can run MoonRay at all:**
+
+```bash
+./scripts/healthcheck.sh                 # auto-finds an extracted bundle
+./scripts/healthcheck.sh ./moonray-cli-arm64.run --render   # also does a 64x64 test render
+```
+
+It checks the things that actually bite: **LSE atomics** (this build uses ARMv8.1 `casp` — absent
+on ARMv8.0 cores it is an illegal instruction), NEON/fp16, core count, RAM, that every bundled
+library resolves through the bundled loader, the 176 RDL2 plugins, the two `dlopen`-invisible
+families (Qt platform plugins, Mesa DRI), your **GL version vs what each GUI needs**, and display
+availability. Exits non-zero if anything is a hard FAIL.
+
+
+
 **[docs/TESTING.md](docs/TESTING.md)** — smoke test, the 361-scene RaTS corpus, scalar-vs-vectorized
 cross-check, GUI, unit tests, and what should change on real silicon vs emulation.
 **[docs/NATIVE-DEVICE.md](docs/NATIVE-DEVICE.md)** — the validated board (Vicharak RK3588 AXON),

@@ -12,6 +12,18 @@ wget $R/moonray-gui-arm64.run   && chmod +x moonray-gui-arm64.run    # 362 MB
 git clone --depth 1 https://github.com/N-E-W-T-O-N/Build-OpenMoonRay-Arm64 omr
 ```
 
+## 0 — Health check (10 seconds)
+
+```bash
+./scripts/healthcheck.sh ./moonray-cli-arm64.run
+./scripts/healthcheck.sh ./moonray-gui-arm64.run --render   # + a real 64x64 render
+```
+
+Run this before anything else. It verifies ISA (incl. **LSE atomics** — ARMv8.0 cores would SIGILL
+on this build), cores/RAM, that every bundled library resolves through the bundled loader, plugin
+counts, GL version against each GUI's requirement, and display availability. Non-zero exit = a
+hard FAIL to fix first.
+
 ## 1 — Smoke test (1 minute)
 
 ```bash
